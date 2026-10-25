@@ -57,12 +57,26 @@ const unavailable = () =>
     headers: { "content-type": "text/plain" },
   });
 
+/**
+ * The offline copy for a URL. An unversioned Ossicle `/audio/:id` (used when the episode's
+ * versioned `audioPath` is unknown) also finds a copy stored under `/audio/:id?v=…`.
+ */
+export async function offlineCopy(url: string, offline: OfflineAudio): Promise<Response | undefined> {
+  const exact = await offline.match(url).catch(() => undefined);
+  if (exact !== undefined) return exact;
+  const parsed = new URL(url);
+  if (parsed.search === "" && parsed.pathname.startsWith("/audio/")) {
+    return offline.matchIgnoringSearch(url).catch(() => undefined);
+  }
+  return undefined;
+}
+
 export async function handleListeningFetch(
   request: Request,
   kind: ListeningRequestKind,
   deps: StreamFetchDeps,
 ): Promise<Response> {
-  const cached = await deps.offline.match(request.url).catch(() => undefined);
+  const cached = await offlineCopy(request.url, deps.offline);
   if (cached !== undefined) return rangeResponse(cached, request.headers.get("range"));
   try {
     if (kind === "pyxis-stream") {

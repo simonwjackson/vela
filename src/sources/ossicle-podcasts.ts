@@ -32,6 +32,11 @@ import { MAX_CONFLICT_ROUNDS, resolvePositionConflict } from "./position-conflic
 export const TALK_BACK_SEC = 15;
 export const TALK_FORWARD_SEC = 30;
 export const POSITIONS_STORAGE_KEY = "vela.ossicle.positions";
+/**
+ * The episode catalogue as last listed. A cold start without signal needs each episode's
+ * version-scoped `audioPath`: offline copies are stored under exactly that URL.
+ */
+export const CATALOG_STORAGE_KEY = "vela.ossicle.catalog";
 const CATALOG_WINDOW = 500;
 const CATALOG_FRESH_MS = 5 * 60 * 1000;
 const KEPT_POSITIONS = 300;
@@ -85,14 +90,38 @@ function readPositions(storage: KeyValueStorage): Record<string, LocalPosition> 
   }
 }
 
+function readCatalog(storage: KeyValueStorage): { podcasts: OssiclePodcast[]; episodes: OssicleEpisode[] } {
+  try {
+    const value: unknown = JSON.parse(storage.getItem(CATALOG_STORAGE_KEY) ?? "{}");
+    if (!isRecord(value)) return { podcasts: [], episodes: [] };
+    return {
+      podcasts: Array.isArray(value.podcasts) ? value.podcasts.filter(isOssiclePodcast) : [],
+      episodes: Array.isArray(value.episodes) ? value.episodes.filter(isOssicleEpisode) : [],
+    };
+  } catch {
+    return { podcasts: [], episodes: [] };
+  }
+}
+
 export function createOssiclePodcasts(options: OssiclePodcastsOptions): OssiclePodcastsAdapter {
   const { rpc, origin, output, storage, deviceId } = options;
   const element = output.element;
   const changes = createEmitter<NowPlaying | undefined>();
 
   const positions = readPositions(storage);
-  const episodes = new Map<string, OssicleEpisode>();
-  const podcasts = new Map<string, OssiclePodcast>();
+  const saved = readCatalog(storage);
+  const episodes = new Map<string, OssicleEpisode>(saved.episodes.map((episode) => [episode.id, episode]));
+  const podcasts = new Map<string, OssiclePodcast>(saved.podcasts.map((podcast) => [podcast.id, podcast]));
+
+  const saveCatalog = () => {
+    // Positions live in their own store; descriptions are not needed to play.
+    const slim = [...episodes.values()].slice(0, CATALOG_WINDOW + 50).map(({ position: _p, description: _d, ...rest }) => rest);
+    try {
+      storage.setItem(CATALOG_STORAGE_KEY, JSON.stringify({ podcasts: [...podcasts.values()], episodes: slim }));
+    } catch (error) {
+      console.warn("Vela could not save the podcast catalogue", error);
+    }
+  };
   let catalogAt = 0;
 
   let current: Item | undefined;
@@ -157,6 +186,7 @@ export function createOssiclePodcasts(options: OssiclePodcastsOptions): OssicleP
       episodes.set(episode.id, episode);
     }
     catalogAt = Date.now();
+    saveCatalog();
   }
 
   async function serverPositions(): Promise<readonly OssiclePosition[]> {
@@ -385,7 +415,12 @@ export function createOssiclePodcasts(options: OssiclePodcastsOptions): OssicleP
       return episode === undefined ? undefined : itemFor(episode);
     },
     async search(query) {
-      await refreshCatalog();
+      try {
+        await refreshCatalog();
+      } catch (error) {
+        // Without signal, search the catalogue kept on the device.
+        if (episodes.size === 0) throw error;
+      }
       const needle = query.trim().toLowerCase();
       const all = [...episodes.values()];
       const hits =
@@ -425,6 +460,7 @@ export function createOssiclePodcasts(options: OssiclePodcastsOptions): OssicleP
         };
       };
       for (const entry of queue) episodes.set(entry.episode.id, entry.episode);
+      saveCatalog();
       return {
         queue: queue.map((entry) => offline(entry.episode)),
         episodes: [...episodes.values()]

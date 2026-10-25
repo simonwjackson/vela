@@ -123,4 +123,26 @@ describe("offline copies", () => {
     expect(parseRange("bytes=5-1", 100)).toBe("invalid");
     expect(parseRange("items=0-1", 100)).toBe("invalid");
   });
+
+  test("an unversioned Ossicle /audio/:id finds the copy stored under its versioned URL", async () => {
+    const offline = createMemoryOfflineAudio();
+    await offline.put("https://ossicle.test/audio/e-1?v=a1", new Response(bytes));
+    const { sent, network } = recordingNetwork();
+    const response = await handleListeningFetch(new Request("https://ossicle.test/audio/e-1"), "ossicle-audio", {
+      origins,
+      offline,
+      credentials,
+      fetch: network,
+    });
+    expect(response.status).toBe(200);
+    expect(sent).toHaveLength(0);
+    // A different version is never answered by an old copy.
+    await handleListeningFetch(new Request("https://ossicle.test/audio/e-1?v=b2"), "ossicle-audio", {
+      origins,
+      offline,
+      credentials,
+      fetch: network,
+    });
+    expect(sent).toHaveLength(1);
+  });
 });

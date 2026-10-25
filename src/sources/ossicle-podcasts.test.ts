@@ -162,4 +162,18 @@ describe("Podcasts from Ossicle", () => {
     await settle();
     expect(ossicle.positions.get("e-4")?.played).toBe(true);
   });
+
+  test("a cold start in a dead zone plays the same versioned audio URL the downloads stored", async () => {
+    const storage = createMemoryStorage();
+    const warm = setup(storage);
+    const candidates = await warm.adapter.offlineCandidates();
+    const stored = candidates.episodes.find((entry) => entry.id === "e-4")?.url;
+    expect(stored).toBe(`${warm.ossicle.origin}/audio/e-4?v=a4`);
+
+    const cold = setup(storage);
+    cold.ossicle.offline = true;
+    await cold.adapter.load(episode);
+    expect(cold.element.src).toBe(stored);
+    expect((await cold.adapter.search("glass"))[0]).toMatchObject({ id: "e-4", by: "The Quiet Engine" });
+  });
 });
