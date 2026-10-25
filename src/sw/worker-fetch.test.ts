@@ -152,3 +152,12 @@ describe("a worker restarted in a dead zone", () => {
     expect(await response?.text()).toBe("Bearer device-token-test");
   });
 });
+
+test("only an HTML navigation answer becomes the offline page", async () => {
+  const { handle, net, shell } = setup({ "/report.pdf": () => new Response("%PDF", { headers: { "content-type": "application/pdf" } }) });
+  await handle(navigation());
+  await handle(navigation(`${scope}/report.pdf`));
+  net.state.online = false;
+  expect(await (await handle(navigation()))?.text()).toBe("<html>vela v2</html>");
+  expect((await shell.keys()).length).toBe(1);
+});

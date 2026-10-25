@@ -71,10 +71,16 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   }
 }
 
-async function networkFirst(request: Request, key: string, deps: WorkerFetchDeps, what: string): Promise<Response> {
+async function networkFirst(
+  request: Request,
+  key: string,
+  deps: WorkerFetchDeps,
+  what: string,
+  keep: (response: Response) => boolean = () => true,
+): Promise<Response> {
   try {
     const response = await withTimeout(deps.fetch(request), deps.networkTimeoutMs ?? DEFAULT_NETWORK_TIMEOUT_MS);
-    if (response.status === 200) {
+    if (response.status === 200 && keep(response)) {
       await deps.shell.put(key, response.clone()).catch(() => undefined);
       return response;
     }
@@ -100,7 +106,10 @@ async function cacheFirst(request: Request, deps: WorkerFetchDeps): Promise<Resp
 export function handleShellFetch(request: Request, kind: ShellRequestKind, deps: WorkerFetchDeps): Promise<Response> {
   switch (kind) {
     case "navigation":
-      return networkFirst(request, `${deps.scopeOrigin}/`, deps, "Vela");
+      // Only the HTML page becomes the offline page; a navigated-to file is not the app.
+      return networkFirst(request, `${deps.scopeOrigin}/`, deps, "Vela", (response) =>
+        (response.headers.get("content-type") ?? "").includes("text/html"),
+      );
     case "config":
       return networkFirst(request, `${deps.scopeOrigin}/config.json`, deps, "Vela's configuration");
     case "asset":

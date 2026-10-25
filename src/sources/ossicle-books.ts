@@ -232,23 +232,57 @@ export function createOssicleBooks(options: OssicleBooksOptions): OssicleBooksAd
     if (autoplay) await element.play();
   }
 
-  async function jumpTo(ordinal: number, offsetSec: number, autoplay: boolean): Promise<void> {
+  const startMsOf = (prepared: NarrationBatch): number => {
+    const first = prepared.segments[0];
+    return timeline?.segments.find((segment) => segment.ordinal === first?.ordinal)?.estimatedStartMs ?? 0;
+  };
+
+  /**
+   * Play from a narration time outside the current window. A window stored on the device
+   * (prepared ahead, with its audio downloaded) is used first, at the exact offset; otherwise
+   * the reader prepares one. When
+   * neither works (no signal), the current window stays: a rewind goes to its start, a skip
+   * ahead stays put, and playback continues. Only with no window at all is it an error.
+   */
+  async function jumpToTime(targetMs: number, autoplay: boolean): Promise<void> {
     const publication = book;
     const line = timeline;
     if (publication === undefined || line === undefined) return;
+    const segment = segmentAtTime(line, targetMs);
+    if (segment === undefined) return;
     const mine = ++run;
     const jump = { autoplay };
     jumping = jump;
+    const current = batch;
+    const currentStartMs = batchStartMs;
     element.pause();
     transport = "loading";
     publish();
     try {
-      const prepared = await prepareFrom(publication, line, ordinal);
+      const prepared =
+        (await narration.batchContaining(publication.id, publication.generation, segment.ordinal).catch(() => undefined)) ??
+        (await prepareFrom(publication, line, segment.ordinal));
       if (mine !== run) return;
       jumping = undefined;
-      await startBatch(prepared, offsetSec, jump.autoplay);
+      const windowMs = prepared.window?.durationMs ?? 0;
+      const offsetMs = Math.min(Math.max(0, targetMs - startMsOf(prepared)), Math.max(0, windowMs - 1000));
+      await startBatch(prepared, offsetMs / 1000, jump.autoplay);
     } catch (error) {
-      if (mine === run) fail(`This book could not continue: ${errorMessage(error)}`);
+      if (mine !== run) return;
+      jumping = undefined;
+      if (current?.window === undefined || batch !== current) {
+        fail(`This book could not continue: ${errorMessage(error)}`);
+        return;
+      }
+      if (targetMs < currentStartMs) {
+        if (pendingSeek !== undefined) pendingSeek = 0;
+        else element.currentTime = 0;
+      }
+      transport = "paused";
+      publish();
+      if (jump.autoplay) {
+        await element.play().catch((cause: unknown) => fail(`Narration could not play: ${errorMessage(cause)}`));
+      }
     } finally {
       if (jumping === jump) jumping = undefined;
     }
@@ -317,6 +351,8 @@ export function createOssicleBooks(options: OssicleBooksOptions): OssicleBooksAd
 
   async function load(target: Item): Promise<void> {
     const mine = ++run;
+    // A jump still waiting in the previous Book must not swallow this Book's play().
+    jumping = undefined;
     element.pause();
     item = target;
     transport = "loading";
@@ -359,10 +395,8 @@ export function createOssicleBooks(options: OssicleBooksOptions): OssicleBooksAd
       publish();
       return;
     }
-    const segment = segmentAtTime(timeline, targetMs);
-    if (segment === undefined) return;
     const wasPlaying = transport === "playing" || jumping?.autoplay === true;
-    void jumpTo(segment.ordinal, Math.max(0, targetMs - segment.estimatedStartMs) / 1000, wasPlaying);
+    void jumpToTime(targetMs, wasPlaying);
   }
 
   async function writePosition(): Promise<void> {
@@ -396,7 +430,9 @@ export function createOssicleBooks(options: OssicleBooksOptions): OssicleBooksAd
         local[publication.id] = { locator: theirs.locator, revision: theirs.revision, dirty: false };
         saveLocal();
         if (book?.id === publication.id && timeline !== undefined) {
-          await jumpTo(startOrdinalFor(timeline, theirs.locator), 0, transport === "playing");
+          const ordinal = startOrdinalFor(timeline, theirs.locator);
+          const startMs = timeline.segments.find((segment) => segment.ordinal === ordinal)?.estimatedStartMs ?? 0;
+          await jumpToTime(startMs, transport === "playing");
         }
         return;
       }

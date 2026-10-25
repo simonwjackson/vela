@@ -237,3 +237,43 @@ describe("Turn sounds near a narration window start", () => {
     listening.dispose();
   });
 });
+
+describe("Turn sounds near a narration window start, without signal", () => {
+  async function bookAt81sOffline(keep?: ReadonlySet<number>) {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
+    const fixture = createListeningFixture();
+    const { listening, elements, books, narration, ossicle } = fixture;
+    await books.narrationAhead(book, 3 * 60 * 60 * 1000);
+    if (keep !== undefined) await narration.retainOnly("b-lantern", "g1", keep);
+    await listening.send({ type: "playItem", item: book });
+    await settle();
+    ossicle.offline = true;
+    elements.books.advance(80); // window 0 ends; window 8 starts from the store
+    await settle();
+    elements.books.advance(1);
+    expect(elements.books.src).toContain("/narration/b-lantern/8.ogg");
+    expect(listening.nowPlaying?.positionSec).toBe(81);
+    await listening.yieldForTurnSound(800);
+    await vi.advanceTimersByTimeAsync(800);
+    await settle();
+    return fixture;
+  }
+
+  test("rewinds into the previous stored window at the exact time and keeps playing", async () => {
+    const { listening, elements } = await bookAt81sOffline();
+    expect(listening.nowPlaying?.transport).toBe("playing");
+    expect(elements.books.src).toContain("/narration/b-lantern/0.ogg");
+    expect(elements.books.currentTime).toBe(79);
+    expect(listening.nowPlaying?.positionSec).toBe(79);
+    listening.dispose();
+  });
+
+  test("with the previous window not stored, clamps to the current window start and keeps playing", async () => {
+    const { listening, elements } = await bookAt81sOffline(new Set([8, 16]));
+    expect(listening.nowPlaying?.transport).toBe("playing");
+    expect(listening.nowPlaying?.error).toBeUndefined();
+    expect(elements.books.src).toContain("/narration/b-lantern/8.ogg");
+    expect(listening.nowPlaying?.positionSec).toBe(80);
+    listening.dispose();
+  });
+});
