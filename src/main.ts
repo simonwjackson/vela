@@ -19,9 +19,11 @@ async function main(): Promise<void> {
     const config = await loadConfig();
     // The worker adds the Pyxis token to /stream and serves offline copies; Music needs it.
     // On the very first visit the worker is installed but not yet in control, so reload once.
-    await registerListeningWorker("/sw.js").catch((error: unknown) => console.warn("Vela could not start its service worker", error));
-    if ("serviceWorker" in navigator) {
-      await navigator.serviceWorker.ready;
+    // If registration fails the app still runs (navigation works; Music streaming and offline audio do not),
+    // so never wait for a worker that is not coming.
+    const registration = await registerListeningWorker("/sw.js").catch(() => undefined);
+    if (registration && "serviceWorker" in navigator) {
+      await Promise.race([navigator.serviceWorker.ready, new Promise((resolve) => setTimeout(resolve, 5_000))]);
       if (!navigator.serviceWorker.controller && !sessionStorage.getItem("vela.swReload")) {
         sessionStorage.setItem("vela.swReload", "1");
         location.reload();
