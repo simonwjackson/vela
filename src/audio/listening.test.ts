@@ -214,3 +214,26 @@ describe("Turn sounds", () => {
     fixture.listening.dispose();
   });
 });
+
+describe("Turn sounds near a narration window start", () => {
+  test("a Book 1 s into its second window resumes playing 2 s back", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
+    const fixture = createListeningFixture();
+    const { listening, elements } = fixture;
+    await listening.send({ type: "playItem", item: book });
+    await settle();
+    elements.books.advance(81); // ends window 1 (80 s) and moves into window 2
+    await settle();
+    expect(elements.books.src).toContain("/narration/b-lantern/8.ogg");
+    elements.books.advance(1);
+    expect(listening.nowPlaying?.positionSec).toBe(81);
+
+    await listening.yieldForTurnSound(800);
+    await vi.advanceTimersByTimeAsync(800);
+    await settle();
+    expect(listening.nowPlaying?.transport).toBe("playing");
+    expect(elements.books.paused).toBe(false);
+    expect(listening.nowPlaying?.positionSec).toBe(79);
+    listening.dispose();
+  });
+});
