@@ -4,7 +4,7 @@ import { destinationPoint } from "../nav/geo";
 import { ManualFixSource } from "../nav/position";
 import { InMemoryStore } from "../nav/storage";
 import { type Motion, PARKED, PARK_AFTER_MS, nextMotion } from "./motion";
-import { createTripsReporter, osmAndUrl } from "./reporter";
+import { PERSIST_EVERY_MS, createTripsReporter, osmAndUrl } from "./reporter";
 
 const T0 = Date.parse("2026-06-01T08:00:00Z");
 const config: VelaConfig = {
@@ -170,6 +170,36 @@ describe("TripsReporter", () => {
     const sentTimes = traccar.received.map((u) => Number(u.searchParams.get("timestamp")));
     expect(sentTimes).toEqual(fixes.slice(3).map((f) => Math.floor(f.at / 1000)));
     second.dispose();
+  });
+
+  test("queue writes are batched, and a hidden page writes what is pending", async () => {
+    vi.useFakeTimers({ now: T0 });
+    try {
+      class CountingStore extends InMemoryStore {
+        writes = 0;
+        override set(key: string, value: string): void {
+          this.writes++;
+          super.set(key, value);
+        }
+      }
+      const store = new CountingStore();
+      const network = new SwitchableNetwork();
+      network.up = false;
+      const trips = createTripsReporter({ config, store, fetcher: new TraccarServer().fetch, network });
+      const fixes = drive({ parkedSec: 0, drivingSec: 60 });
+      for (const fix of fixes.slice(0, 30)) {
+        trips.record(fix);
+        await vi.advanceTimersByTimeAsync(1000);
+      }
+      expect(trips.queued).toBe(30);
+      expect(store.writes).toBeLessThanOrEqual(30 / (PERSIST_EVERY_MS / 1000) + 1);
+      trips.record(fixes[30] as Fix);
+      window.dispatchEvent(new Event("pagehide"));
+      expect(JSON.parse(store.get("vela.trips.queue") ?? "[]")).toHaveLength(31);
+      trips.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test("a rejected send stays queued, retries later and never reorders", async () => {

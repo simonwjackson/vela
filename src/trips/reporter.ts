@@ -26,6 +26,8 @@ const QUEUE_KEY = "vela.trips.queue";
 /** About five and a half hours of driving at one fix per second. Oldest fixes go first. */
 export const MAX_QUEUED = 20_000;
 export const RETRY_MS = 30_000;
+/** The queue is written to the device at most this often (and when the page is hidden or closed). */
+export const PERSIST_EVERY_MS = 5_000;
 const MPS_TO_KNOTS = 1.943844;
 const SEND_TIMEOUT_MS = 15_000;
 
@@ -73,12 +75,13 @@ export function createTripsReporter(deps: TripsDeps): TripsEngine {
   const online = () => deps.network?.online() ?? globalThis.navigator?.onLine ?? true;
   const listeners = new Set<(status: TripsStatus) => void>();
 
-  let queue: Row[] = readJson(store, QUEUE_KEY, isRows) ?? [];
+  const queue: Row[] = readJson(store, QUEUE_KEY, isRows) ?? [];
   let motion: Motion = PARKED;
   let lastError: string | undefined;
   let flushing: Promise<void> | undefined;
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
   let disposed = false;
+  let persistTimer: ReturnType<typeof setTimeout> | undefined;
 
   const unsubscribeNetwork = deps.network?.subscribe(() => {
     if (online()) void reporter.flush();
@@ -93,9 +96,23 @@ export function createTripsReporter(deps: TripsDeps): TripsEngine {
     for (const l of [...listeners]) l(s);
   }
 
-  function persist(): void {
+  function persistNow(): void {
+    if (persistTimer !== undefined) clearTimeout(persistTimer);
+    persistTimer = undefined;
     store.set(QUEUE_KEY, JSON.stringify(queue));
   }
+
+  /** Batch writes: rewriting a large queue on every fix is the expensive part offline. */
+  function persistSoon(): void {
+    if (persistTimer !== undefined || disposed) return;
+    persistTimer = setTimeout(persistNow, PERSIST_EVERY_MS);
+  }
+
+  const onHidden = () => {
+    if (persistTimer !== undefined) persistNow();
+  };
+  globalThis.addEventListener?.("pagehide", onHidden);
+  globalThis.document?.addEventListener("visibilitychange", onHidden);
 
   function scheduleRetry(): void {
     if (retryTimer !== undefined || disposed) return;
@@ -134,9 +151,9 @@ export function createTripsReporter(deps: TripsDeps): TripsEngine {
         return;
       }
       // The queue may have been trimmed while the send was in flight; drop only what was sent.
-      if (queue[0] === row) queue = queue.slice(1);
+      if (queue[0] === row) queue.shift();
       lastError = undefined;
-      persist();
+      persistSoon();
       notify();
     }
   }
@@ -154,9 +171,9 @@ export function createTripsReporter(deps: TripsDeps): TripsEngine {
       const changed = (step.motion.kind === "moving") !== (motion.kind === "moving");
       motion = step.motion;
       if (step.record.length > 0) {
-        queue = [...queue, ...step.record.map(toRow)];
-        if (queue.length > MAX_QUEUED) queue = queue.slice(queue.length - MAX_QUEUED);
-        persist();
+        for (const fix of step.record) queue.push(toRow(fix));
+        if (queue.length > MAX_QUEUED) queue.splice(0, queue.length - MAX_QUEUED);
+        persistSoon();
         if (online()) void reporter.flush();
       }
       if (changed || step.record.length > 0) notify();
@@ -184,7 +201,10 @@ export function createTripsReporter(deps: TripsDeps): TripsEngine {
     },
 
     dispose() {
+      if (persistTimer !== undefined) persistNow();
       disposed = true;
+      globalThis.removeEventListener?.("pagehide", onHidden);
+      globalThis.document?.removeEventListener("visibilitychange", onHidden);
       if (retryTimer !== undefined) clearTimeout(retryTimer);
       unsubscribeNetwork?.();
       listeners.clear();

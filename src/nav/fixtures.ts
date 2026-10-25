@@ -100,6 +100,8 @@ interface Location {
  */
 export class ValhallaServer {
   behavior: ValhallaBehavior = "ok";
+  /** When set, /trace_attributes waits for this before answering (a slow server). */
+  traceGate: Promise<void> | undefined;
   readonly requests: { url: string; body: Record<string, unknown>; init: RequestInit | undefined }[] = [];
   plan: (locations: readonly Location[]) => BuiltLeg[];
   private lastLegs: BuiltLeg[] = [];
@@ -131,6 +133,7 @@ export class ValhallaServer {
       return json(200, tripJson(this.lastLegs));
     }
     if (url === `${VALHALLA}/trace_attributes`) {
+      await this.traceGate;
       const edges = this.lastLegs.flatMap((leg) =>
         leg.segments.map((s) => ({
           length: s.meters / 1000,

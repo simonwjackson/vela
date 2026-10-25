@@ -25,7 +25,7 @@ import { type KeyValueStore, deviceStore, readJson } from "./storage";
 import { isDaylight } from "./sun";
 import { RouteTrack, type Snap } from "./track";
 import { TurnSoundScheduler } from "./turnSounds";
-import { type PlannedRoute, RouteError, type RouteFetcher, speedLimitAt, valhallaRouter } from "./valhalla";
+import { type PlannedRoute, RouteError, type Router, speedLimitAt, valhallaRouter } from "./valhalla";
 
 /** Whether the phone believes it has signal, and a way to hear when that changes. */
 export interface Network {
@@ -37,7 +37,7 @@ export interface NavEngineDeps {
   readonly config: VelaConfig;
   readonly fixes: FixSource;
   readonly store?: KeyValueStore;
-  readonly router?: RouteFetcher;
+  readonly router?: Router;
   readonly search?: PlaceSearch;
   readonly fetcher?: typeof fetch;
   readonly network?: Network;
@@ -158,6 +158,18 @@ export function createNavEngine(deps: NavEngineDeps): DisposableNavEngine {
     along = fix && snapToFix ? track.snap(fix, 0, 2_000).along : 0;
     snapWholeRoute = false;
     store.set(ROUTE_KEY, JSON.stringify(next));
+    if (next.speedLimits.length === 0) fillSpeedLimits(next);
+  }
+
+  /** Speed limits arrive after the Route; they fill in only if that Route is still the current one. */
+  function fillSpeedLimits(target: PlannedRoute): void {
+    const gen = generation;
+    void router.speedLimits(target.route.shape).then((limits) => {
+      if (gen !== generation || planned !== target || limits.length === 0) return;
+      planned = { ...target, speedLimits: limits };
+      store.set(ROUTE_KEY, JSON.stringify(planned));
+      refreshReadouts();
+    });
   }
 
   function resumeCachedRoute(): void {
@@ -297,7 +309,7 @@ export function createNavEngine(deps: NavEngineDeps): DisposableNavEngine {
     publishGuidance();
     notify();
     try {
-      const next = await router({ from: fromFix(fix), via: via ?? remainingVia(current) });
+      const next = await router.route({ from: fromFix(fix), via: via ?? remainingVia(current) });
       if (gen !== generation) return;
       rerouting = false;
       adopt(next, true);
@@ -347,7 +359,7 @@ export function createNavEngine(deps: NavEngineDeps): DisposableNavEngine {
       try {
         const fix = await waitForFix();
         if (gen !== generation) return;
-        const next = await router({ from: fromFix(fix), via: [destination] });
+        const next = await router.route({ from: fromFix(fix), via: [destination] });
         if (gen !== generation) return;
         adopt(next, true);
         publishGuidance();
