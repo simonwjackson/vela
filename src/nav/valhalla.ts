@@ -48,14 +48,20 @@ export interface ValhallaOptions {
   readonly now?: () => number;
 }
 
-export type RouteFetcher = (request: RouteRequest) => Promise<PlannedRoute>;
+/** How the engine asks for Routes. Speed limits come separately, so they never delay a Route. */
+export interface Router {
+  /** The whole Route; its `speedLimits` is empty. */
+  route(request: RouteRequest): Promise<PlannedRoute>;
+  /** Speed limits along an encoded Route shape. Never rejects; unknown is an empty list. */
+  speedLimits(shape: string): Promise<PlannedRoute["speedLimits"]>;
+}
 
-export function valhallaRouter(options: ValhallaOptions): RouteFetcher {
+export function valhallaRouter(options: ValhallaOptions): Router {
   const fetcher = options.fetcher ?? ((input, init) => fetch(input, init));
   const timeoutMs = options.timeoutMs ?? 20_000;
   const now = options.now ?? Date.now;
 
-  return async (request) => {
+  async function route(request: RouteRequest): Promise<PlannedRoute> {
     const destination = request.via[request.via.length - 1];
     if (!destination) throw new Error("A route needs a Destination");
     const origin: Record<string, unknown> = { lat: request.from.lat, lon: request.from.lng, type: "break" };
@@ -69,10 +75,10 @@ export function valhallaRouter(options: ValhallaOptions): RouteFetcher {
       directions_options: { units: "kilometers" },
     };
     const raw = await postJson(fetcher, `${options.origin}/route`, body, timeoutMs);
-    const planned = parseRoute(raw, request.via, now());
-    const speedLimits = await fetchSpeedLimits(fetcher, options.origin, planned.route.shape, timeoutMs);
-    return { ...planned, speedLimits };
-  };
+    return { ...parseRoute(raw, request.via, now()), speedLimits: [] };
+  }
+
+  return { route, speedLimits: (shape) => fetchSpeedLimits(fetcher, options.origin, shape, timeoutMs) };
 }
 
 async function postJson(fetcher: typeof fetch, url: string, body: unknown, timeoutMs: number): Promise<unknown> {

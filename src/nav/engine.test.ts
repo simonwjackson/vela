@@ -100,6 +100,7 @@ describe("guidance along a trace", () => {
     const h = setup({ now: () => T0 });
     h.fixes.push({ ...ORIGIN, at: T0, accuracyM: 5, speedMps: 0 });
     await h.engine.start(h.destination);
+    await settle(); // speed limits follow the Route
 
     const g0 = guidanceOf(h.engine.state);
     expect(g0.route.stops.map((s) => s.maneuver)).toEqual(["right", "left", "arrive"]);
@@ -187,6 +188,23 @@ test("Valhalla requests are CORS simple requests: no preflight-triggering header
   h.engine.dispose();
 });
 
+test("a slow speed-limit answer never delays the Route; limits fill in later", async () => {
+  const h = setup();
+  let release = () => {};
+  h.valhalla.traceGate = new Promise((r) => {
+    release = r;
+  });
+  h.fixes.push({ ...ORIGIN, at: Date.now(), accuracyM: 5, speedMps: 10 });
+  await h.engine.start(h.destination);
+  expect(h.engine.state.kind).toBe("guiding");
+  expect(h.engine.readouts.speedLimitKmh).toBeUndefined();
+  release();
+  await settle();
+  expect(h.engine.readouts.speedLimitKmh).toBe(60);
+  expect(h.store.get("vela.nav.route")).toContain("[0,1000");
+  h.engine.dispose();
+});
+
 describe("off route", () => {
   /** Drive 400 m along the Route, then 300 m due west, away from it. */
   function leaveRoute(h: Harness): void {
@@ -268,7 +286,8 @@ describe("off route", () => {
     const g = guidanceOf(again.engine.state);
     expect(g.nextStop.street).toBe("Gamma Lane");
     expect(g.offline).toBe(true);
-    expect(again.valhalla.requests).toHaveLength(0);
+    // Only the speed limits missing from the cache are asked for again; never a new Route.
+    expect(again.valhalla.routeRequests()).toHaveLength(0);
     again.engine.dispose();
   });
 });
@@ -366,16 +385,18 @@ describe("waypoints, errors and places", () => {
     h.engine.dispose();
   });
 
-  test("search is biased to the current position", async () => {
+  test("search is biased to the rounded current position and sends no referrer", async () => {
     const urls: string[] = [];
+    const inits: (RequestInit | undefined)[] = [];
     const fixes = new ManualFixSource();
     const engine = createNavEngine({
       config,
       fixes,
       store: new InMemoryStore(),
       network: new SwitchableNetwork(),
-      fetcher: async (input) => {
+      fetcher: async (input, init) => {
         urls.push(String(input));
+        inits.push(init);
         return new Response(
           JSON.stringify({
             type: "FeatureCollection",
@@ -390,9 +411,11 @@ describe("waypoints, errors and places", () => {
         );
       },
     });
-    fixes.push({ ...ORIGIN, at: Date.now(), accuracyM: 5 });
+    fixes.push({ lat: 10.123456, lng: 20.987654, at: Date.now(), accuracyM: 5 });
     const results = await engine.search("bakery");
-    expect(urls[0]).toBe("https://photon.test/api?q=bakery&limit=8&lat=10.00000&lon=20.00000");
+    // About 1 km of bias, no referrer: Photon may be a public server.
+    expect(urls[0]).toBe("https://photon.test/api?q=bakery&limit=8&lat=10.12&lon=20.99");
+    expect(inits[0]?.referrerPolicy).toBe("no-referrer");
     expect(results).toEqual([{ name: "Invented Bakery", lat: 10.02, lng: 20.01, address: "7 Alpha Road, Nowhere" }]);
     engine.dispose();
   });

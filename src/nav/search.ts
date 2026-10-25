@@ -11,13 +11,14 @@ export function photonSearch(photonUrl: string, fetcher: typeof fetch = (i, init
     const q = query.trim();
     if (!q) return [];
     const params = new URLSearchParams({ q, limit: "8" });
+    // Photon may be a public server: bias to about 1 km, and send no referrer.
     if (near) {
-      params.set("lat", near.lat.toFixed(5));
-      params.set("lon", near.lng.toFixed(5));
+      params.set("lat", near.lat.toFixed(2));
+      params.set("lon", near.lng.toFixed(2));
     }
     let res: Response;
     try {
-      res = await fetcher(`${photonUrl}/api?${params}`);
+      res = await fetcher(`${photonUrl}/api?${params}`, { referrerPolicy: "no-referrer" });
     } catch (error) {
       throw new Error(`Search needs signal: ${error instanceof Error ? error.message : String(error)}`);
     }
