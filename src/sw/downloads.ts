@@ -69,6 +69,8 @@ export interface DownloadsOptions {
   readonly connection: () => ConnectionLike | undefined;
   readonly storage: KeyValueStorage;
   readonly narrationAheadMs?: number;
+  /** How often a running download checks it is still on Wi-Fi. Default 1 s. */
+  readonly networkCheckMs?: number;
 }
 
 export interface Downloads {
@@ -154,6 +156,13 @@ export function createDownloads(options: DownloadsOptions): Downloads {
 
   async function download(target: DownloadTarget): Promise<void> {
     setItem(target.url, { state: "downloading" });
+    // Leaving Wi-Fi stops the file in flight, not only the files after it.
+    const abort = new AbortController();
+    const watch = setInterval(() => {
+      if (downloadNetwork(options.connection(), status.manualWifi).kind === "blocked") {
+        abort.abort(new Error("Wi-Fi was lost"));
+      }
+    }, options.networkCheckMs ?? 1000);
     try {
       const headers = new Headers();
       if (target.auth === "pyxis") {
@@ -161,12 +170,17 @@ export function createDownloads(options: DownloadsOptions): Downloads {
         if (token === undefined) throw new Error("Music has no Pyxis device token yet");
         headers.set("authorization", `Bearer ${token}`);
       }
-      const response = await options.fetch(target.url, { headers, mode: "cors", credentials: "omit" });
+      const response = await options.fetch(target.url, { headers, mode: "cors", credentials: "omit", signal: abort.signal });
       if (response.status !== 200) throw new Error(`HTTP ${response.status}`);
-      await offline.put(target.url, response);
+      // Read the whole body before storing, so an abort mid-body never stores a partial file.
+      const body = await response.blob();
+      if (abort.signal.aborted) throw abort.signal.reason;
+      await offline.put(target.url, new Response(body, { headers: response.headers }));
       setItem(target.url, { state: "saved" });
     } catch (error) {
-      setItem(target.url, { state: "failed", error: errorMessage(error) });
+      setItem(target.url, { state: "failed", error: errorMessage(abort.signal.aborted ? abort.signal.reason : error) });
+    } finally {
+      clearInterval(watch);
     }
   }
 
