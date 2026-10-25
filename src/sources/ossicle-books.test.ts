@@ -174,3 +174,45 @@ test("a seek into another window lands on the exact time, not the sentence start
   expect(element.src).toContain("/narration/b-lantern/25.ogg");
   expect(element.currentTime).toBe(3);
 });
+
+test("opening another Book while a jump waits on synthesis plays the new Book", async () => {
+  const ossicle = createInMemoryOssicle({
+    books: [
+      { id: "b-lantern", title: "The Lantern Keeper", authors: ["A. Invented"], generation: "g1", sentences: 40 },
+      { id: "b-orchard", title: "Orchard Hours", authors: ["B. Invented"], generation: "g1", sentences: 40 },
+    ],
+  });
+  const element = new ScriptedMediaElement({ durationFor: () => 80 });
+  let release: (() => void) | undefined;
+  let hold = false;
+  const books = createOssicleBooks({
+    comics: createComicsClient({ origin: ossicle.origin, fetch: ossicle.fetch }),
+    output: createAudioOutput(element),
+    storage: createMemoryStorage(),
+    deviceId: "vela-car",
+    narration: createMemoryNarrationStore(),
+    // While `hold` is set, synthesis never finishes until released.
+    sleep: () =>
+      hold
+        ? new Promise<void>((resolve) => {
+            release = resolve;
+          })
+        : Promise.resolve(),
+  });
+  await books.load(book);
+  await books.play();
+  await settle();
+  hold = true;
+  ossicle.windowAfterPolls = 1_000;
+  books.seek(250); // waits on synthesis
+  await settle();
+  ossicle.windowAfterPolls = 0;
+  hold = false;
+  await books.load({ source: "books", id: "b-orchard", title: "Orchard Hours", by: "B. Invented" });
+  await books.play();
+  await settle();
+  release?.();
+  await settle();
+  expect(element.src).toContain("/narration/b-orchard/0.ogg");
+  expect(element.paused).toBe(false);
+});

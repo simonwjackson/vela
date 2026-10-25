@@ -11,6 +11,8 @@ export interface NarrationStore {
   /** A prepared batch whose first sentence is `ordinal`. */
   batch(bookId: string, generation: string, ordinal: number): Promise<NarrationBatch | undefined>;
   putBatch(bookId: string, generation: string, ordinal: number, batch: NarrationBatch): Promise<void>;
+  /** A stored batch with a window that narrates sentence `ordinal`, wherever that batch starts. */
+  batchContaining(bookId: string, generation: string, ordinal: number): Promise<NarrationBatch | undefined>;
   /** Delete every stored batch except these ordinals of this book. */
   retainOnly(bookId: string, generation: string, ordinals: ReadonlySet<number>): Promise<void>;
 }
@@ -23,6 +25,19 @@ const bookPrefix = (bookId: string, generation: string) =>
 const timelineKey = (bookId: string, generation: string) => `${bookPrefix(bookId, generation)}/timeline`;
 const batchKey = (bookId: string, generation: string, ordinal: number) =>
   `${bookPrefix(bookId, generation)}/batch/${ordinal}`;
+
+/** The first-sentence ordinals of stored batch keys for one book, highest first. */
+function batchStarts(keys: readonly string[], bookId: string, generation: string): number[] {
+  const prefix = `${bookPrefix(bookId, generation)}/batch/`;
+  return keys
+    .filter((key) => key.startsWith(prefix))
+    .map((key) => Number(key.slice(prefix.length)))
+    .filter((ordinal) => Number.isSafeInteger(ordinal))
+    .sort((a, b) => b - a);
+}
+
+export const narrates = (batch: NarrationBatch | undefined, ordinal: number): batch is NarrationBatch =>
+  batch?.window !== undefined && batch.segments.some((segment) => segment.ordinal === ordinal);
 
 export function createCacheNarrationStore(storage: CacheStorage, cacheName = NARRATION_CACHE): NarrationStore {
   const open = () => storage.open(cacheName);
@@ -43,6 +58,15 @@ export function createCacheNarrationStore(storage: CacheStorage, cacheName = NAR
     putTimeline: (bookId, generation, timeline) => writeJson(timelineKey(bookId, generation), timeline),
     batch: (bookId, generation, ordinal) => readJson<NarrationBatch>(batchKey(bookId, generation, ordinal)),
     putBatch: (bookId, generation, ordinal, batch) => writeJson(batchKey(bookId, generation, ordinal), batch),
+    async batchContaining(bookId, generation, ordinal) {
+      const keys = (await (await open()).keys()).map((request) => request.url);
+      for (const start of batchStarts(keys, bookId, generation)) {
+        if (start > ordinal) continue;
+        const candidate = await readJson<NarrationBatch>(batchKey(bookId, generation, start));
+        return narrates(candidate, ordinal) ? candidate : undefined;
+      }
+      return undefined;
+    },
     async retainOnly(bookId, generation, ordinals) {
       const cache = await open();
       const keep = new Set([...ordinals].map((ordinal) => batchKey(bookId, generation, ordinal)));
@@ -67,6 +91,14 @@ export function createMemoryNarrationStore(): NarrationStore & { readonly batche
     batch: async (bookId, generation, ordinal) => batches.get(batchKey(bookId, generation, ordinal)),
     async putBatch(bookId, generation, ordinal, batch) {
       batches.set(batchKey(bookId, generation, ordinal), batch);
+    },
+    async batchContaining(bookId, generation, ordinal) {
+      for (const start of batchStarts([...batches.keys()], bookId, generation)) {
+        if (start > ordinal) continue;
+        const candidate = batches.get(batchKey(bookId, generation, start));
+        return narrates(candidate, ordinal) ? candidate : undefined;
+      }
+      return undefined;
     },
     async retainOnly(bookId, generation, ordinals) {
       const keep = new Set([...ordinals].map((ordinal) => batchKey(bookId, generation, ordinal)));
