@@ -11,7 +11,12 @@ import type { Guidance, Place } from "./navigation";
 
 export const SURFACE_PROTOCOL_VERSION = 1;
 
+/** Matches `^[a-z0-9][a-z0-9-]{0,39}$`. Defaults: "navigator", "companion", "guide". */
 export type CoDriverId = string;
+export const CO_DRIVER_ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
+
+/** WebSocket close codes the assistant uses. Do not auto-reconnect on REPLACED. */
+export const SURFACE_CLOSE = { REFUSED: 1002, REPLACED: 4000 } as const;
 
 export interface ToolSpec {
   readonly name: CarToolName;
@@ -46,13 +51,31 @@ export type SurfaceUp =
   | { readonly type: "tool.result"; readonly id: string; readonly ok: false; readonly error: string }
   /** A finished Trip, for the assistant's memory. Recall itself reads Traccar (ADR 0008). */
   | { readonly type: "trip.ended"; readonly from?: Place; readonly to?: Place; readonly startedAt: number;
-      readonly endedAt: number; readonly meters: number };
+      readonly endedAt: number; readonly meters: number }
+  /**
+   * Rewrite a Route's direction lines in the Co-driver's voice, for caching at route start.
+   * Up to 400 lines; the result has exactly as many lines, in order, or fails as a whole.
+   */
+  | { readonly type: "directions.request"; readonly id: string; readonly coDriver?: CoDriverId; readonly lines: readonly string[] };
 
 /** Assistant → Vela. */
 export type SurfaceDown =
   | { readonly type: "surface.welcome"; readonly version: number }
   | { readonly type: "tool.call"; readonly id: string; readonly name: CarToolName; readonly args: unknown }
-  | { readonly type: "error"; readonly message: string };
+  | { readonly type: "error"; readonly message: string }
+  | { readonly type: "directions.result"; readonly id: string; readonly ok: true; readonly lines: readonly string[] }
+  | { readonly type: "directions.result"; readonly id: string; readonly ok: false; readonly error: string };
+
+/**
+ * Notes for the Vela side of SurfaceLink and voice-gateway (from the assistant and gateway builds):
+ * - One Co-driver per link. A second surface.hello is an error; reconnect to change Co-driver.
+ * - The assistant matches tools by name and uses its own parameter schemas.
+ * - voice-gateway: send `session.update { voice: <coDriver id> }`; Talk opens with
+ *   `input_audio_buffer.clear` (this also stops the Co-driver at once) and closes with
+ *   `input_audio_buffer.commit` then `response.create`; after a barge-in send `conversation.item.truncate`.
+ * - Browsers cannot send a bearer token on a WebSocket; both services rely on tailnet auth plus
+ *   their exact-origin allowlists.
+ */
 
 export interface TripContext {
   readonly destination: Place;
