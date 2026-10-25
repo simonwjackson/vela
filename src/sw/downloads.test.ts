@@ -153,4 +153,31 @@ describe("the download runner", () => {
     expect(keys).not.toContain("https://pyxis.test/stream/unpinned");
     expect(downloads.status.problems.podcasts).toBe("Ossicle is unreachable");
   });
+
+  test("losing Wi-Fi stops the file in flight and stores nothing partial", async () => {
+    const offline = createMemoryOfflineAudio();
+    let connection: { type?: string } = { type: "wifi" };
+    const downloads = createDownloads({
+      origins,
+      offline,
+      sources: {
+        podcasts: async () => ({ queue: [episode("q1")], episodes: [] }),
+        currentBook: () => undefined,
+        narrationAhead: async () => [],
+        pinnedTracks: async () => [],
+      },
+      fetch: (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+          connection = { type: "cellular" };
+        }),
+      pyxisToken: async () => undefined,
+      connection: () => connection,
+      storage: createMemoryStorage(),
+      networkCheckMs: 5,
+    });
+    await downloads.run();
+    expect(await offline.keys()).toEqual([]);
+    expect(downloads.status.items[0]).toMatchObject({ state: "failed", error: "Wi-Fi was lost" });
+  });
 });

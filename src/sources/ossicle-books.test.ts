@@ -126,3 +126,51 @@ test("prepares the next hours ahead into the narration store, and plays them off
   await books.load(book);
   expect(element.src).toContain("/narration/b-lantern/0.ogg");
 });
+
+test("a cold start in a dead zone plays the narration prepared ahead", async () => {
+  const storage = createMemoryStorage();
+  const ossicle = createInMemoryOssicle();
+  const narration = createMemoryNarrationStore();
+  const make = () => {
+    const element = new ScriptedMediaElement({ durationFor: () => 80 });
+    const adapter = createOssicleBooks({
+      comics: createComicsClient({ origin: ossicle.origin, fetch: ossicle.fetch }),
+      output: createAudioOutput(element),
+      storage,
+      deviceId: "vela-car",
+      narration,
+      sleep: async () => undefined,
+    });
+    return { element, adapter };
+  };
+  await make().adapter.narrationAhead(book, 200_000);
+
+  ossicle.offline = true;
+  const cold = make();
+  await cold.adapter.load(book);
+  expect(cold.element.src).toBe(`${ossicle.origin}/comics/narration/b-lantern/0.ogg`);
+  await cold.adapter.play();
+  expect(cold.element.paused).toBe(false);
+});
+
+test("play() during a jump to another window starts the new window", async () => {
+  const { books, element } = setup();
+  await books.load(book);
+  await books.play();
+  await settle();
+  element.pause();
+  books.seek(250);
+  await books.play();
+  await settle();
+  expect(element.src).toContain("/narration/b-lantern/25.ogg");
+  expect(element.paused).toBe(false);
+});
+
+test("a seek into another window lands on the exact time, not the sentence start", async () => {
+  const { books, element } = setup();
+  await books.load(book);
+  books.seek(253);
+  await settle();
+  expect(element.src).toContain("/narration/b-lantern/25.ogg");
+  expect(element.currentTime).toBe(3);
+});

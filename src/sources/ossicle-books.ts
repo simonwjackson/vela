@@ -38,6 +38,8 @@ import { isRecord } from "./ossicle-rpc";
 import { MAX_CONFLICT_ROUNDS, resolvePositionConflict } from "./position-conflict";
 
 export const BOOK_POSITIONS_STORAGE_KEY = "vela.books.positions";
+/** The library as last listed, so a cold start without signal can still open a Book. */
+export const BOOK_LIBRARY_STORAGE_KEY = "vela.books.library";
 
 export interface OssicleBooksOptions {
   readonly comics: ComicsClient;
@@ -74,6 +76,23 @@ function readLocal(storage: KeyValueStorage): Record<string, LocalBookPosition> 
   }
 }
 
+function readLibrary(storage: KeyValueStorage): Map<string, BookPublication> {
+  try {
+    const value: unknown = JSON.parse(storage.getItem(BOOK_LIBRARY_STORAGE_KEY) ?? "[]");
+    if (!Array.isArray(value)) return new Map();
+    return new Map(
+      value
+        .filter(
+          (entry): entry is BookPublication =>
+            isRecord(entry) && typeof entry.id === "string" && typeof entry.generation === "string" && Array.isArray(entry.authors),
+        )
+        .map((entry) => [entry.id, entry]),
+    );
+  } catch {
+    return new Map();
+  }
+}
+
 const sameSpot = (left: BookLocator | undefined, right: BookLocator) =>
   left !== undefined && left.resource === right.resource && left.characterOffset === right.characterOffset;
 
@@ -85,7 +104,7 @@ export function createOssicleBooks(options: OssicleBooksOptions): OssicleBooksAd
   const pollEveryMs = options.pollEveryMs ?? 1500;
   const changes = createEmitter<NowPlaying | undefined>();
   const local = readLocal(storage);
-  const books = new Map<string, BookPublication>();
+  const books = readLibrary(storage);
 
   let book: BookPublication | undefined;
   let item: Item | undefined;
@@ -98,6 +117,8 @@ export function createOssicleBooks(options: OssicleBooksOptions): OssicleBooksAd
   let pendingSeek: number | undefined;
   let run = 0;
   let syncing: Promise<void> | undefined;
+  /** A move to another window in flight. play()/pause() during it decide whether it plays. */
+  let jumping: { autoplay: boolean } | undefined;
 
   const saveLocal = () => {
     try {
@@ -138,6 +159,11 @@ export function createOssicleBooks(options: OssicleBooksOptions): OssicleBooksAd
 
   async function refreshBooks(): Promise<void> {
     for (const publication of await comics.booksList()) books.set(publication.id, publication);
+    try {
+      storage.setItem(BOOK_LIBRARY_STORAGE_KEY, JSON.stringify([...books.values()]));
+    } catch (error) {
+      console.warn("Vela could not save the book library", error);
+    }
   }
 
   async function findBook(id: string): Promise<BookPublication> {
@@ -211,15 +237,20 @@ export function createOssicleBooks(options: OssicleBooksOptions): OssicleBooksAd
     const line = timeline;
     if (publication === undefined || line === undefined) return;
     const mine = ++run;
+    const jump = { autoplay };
+    jumping = jump;
     element.pause();
     transport = "loading";
     publish();
     try {
       const prepared = await prepareFrom(publication, line, ordinal);
       if (mine !== run) return;
-      await startBatch(prepared, offsetSec, autoplay);
+      jumping = undefined;
+      await startBatch(prepared, offsetSec, jump.autoplay);
     } catch (error) {
       if (mine === run) fail(`This book could not continue: ${errorMessage(error)}`);
+    } finally {
+      if (jumping === jump) jumping = undefined;
     }
   }
 
@@ -330,7 +361,8 @@ export function createOssicleBooks(options: OssicleBooksOptions): OssicleBooksAd
     }
     const segment = segmentAtTime(timeline, targetMs);
     if (segment === undefined) return;
-    void jumpTo(segment.ordinal, 0, transport === "playing");
+    const wasPlaying = transport === "playing" || jumping?.autoplay === true;
+    void jumpTo(segment.ordinal, Math.max(0, targetMs - segment.estimatedStartMs) / 1000, wasPlaying);
   }
 
   async function writePosition(): Promise<void> {
@@ -384,6 +416,10 @@ export function createOssicleBooks(options: OssicleBooksOptions): OssicleBooksAd
     source: "books",
     load,
     async play() {
+      if (jumping !== undefined) {
+        jumping.autoplay = true;
+        return;
+      }
       if (item === undefined || batch === undefined) return;
       try {
         await element.play();
@@ -393,7 +429,10 @@ export function createOssicleBooks(options: OssicleBooksOptions): OssicleBooksAd
         throw error;
       }
     },
-    pause: () => element.pause(),
+    pause() {
+      if (jumping !== undefined) jumping.autoplay = false;
+      element.pause();
+    },
     seek,
     back: () => seek(positionSec() - TALK_BACK_SEC),
     forward: () => seek(positionSec() + TALK_FORWARD_SEC),
