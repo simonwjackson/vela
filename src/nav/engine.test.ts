@@ -169,6 +169,24 @@ describe("guidance along a trace", () => {
   });
 });
 
+test("Valhalla requests are CORS simple requests: no preflight-triggering header", async () => {
+  const h = setup();
+  h.fixes.push({ ...ORIGIN, at: Date.now(), accuracyM: 5 });
+  await h.engine.start(h.destination);
+  const urls = h.valhalla.requests.map((r) => r.url);
+  expect(urls).toEqual([`${VALHALLA}/route`, `${VALHALLA}/trace_attributes`]);
+  for (const { url, init } of h.valhalla.requests) {
+    expect(init?.method).toBe("POST");
+    expect(init?.headers).toBeUndefined();
+    expect(typeof init?.body).toBe("string");
+    // What the browser would send: only a safelisted content type, set from the string body.
+    const sent = new Request(url, init);
+    expect([...sent.headers.keys()].map((k) => k.toLowerCase())).toEqual(["content-type"]);
+    expect(sent.headers.get("content-type")).toBe("text/plain;charset=UTF-8");
+  }
+  h.engine.dispose();
+});
+
 describe("off route", () => {
   /** Drive 400 m along the Route, then 300 m due west, away from it. */
   function leaveRoute(h: Harness): void {

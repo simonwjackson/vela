@@ -80,9 +80,10 @@ async function postJson(fetcher: typeof fetch, url: string, body: unknown, timeo
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   let res: Response;
   try {
+    // A CORS "simple request": a string body (sent as text/plain;charset=UTF-8) and no custom
+    // headers. Valhalla answers the preflight OPTIONS with 405, so a JSON content type would fail.
     res = await fetcher(url, {
       method: "POST",
-      headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
       signal: controller.signal,
     });

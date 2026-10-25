@@ -100,7 +100,7 @@ interface Location {
  */
 export class ValhallaServer {
   behavior: ValhallaBehavior = "ok";
-  readonly requests: { url: string; body: Record<string, unknown> }[] = [];
+  readonly requests: { url: string; body: Record<string, unknown>; init: RequestInit | undefined }[] = [];
   plan: (locations: readonly Location[]) => BuiltLeg[];
   private lastLegs: BuiltLeg[] = [];
 
@@ -114,14 +114,14 @@ export class ValhallaServer {
         }));
   }
 
-  routeRequests(): { url: string; body: Record<string, unknown> }[] {
+  routeRequests(): ValhallaServer["requests"] {
     return this.requests.filter((r) => r.url.endsWith("/route"));
   }
 
   readonly fetch: typeof fetch = async (input, init) => {
     const url = String(input);
     const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
-    this.requests.push({ url, body });
+    this.requests.push({ url, body, init });
     if (this.behavior === "no-signal") throw new TypeError("Failed to fetch");
     if (url === `${VALHALLA}/route`) {
       if (this.behavior === "no-route") {
