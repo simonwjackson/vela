@@ -22,4 +22,4 @@ Open items from the first build's reviews (2026-10-25). They live here until Vel
 - **Ossicle /comics accepts cross-site writes.** It has no origin check on POST.
 - **Ossicle has a flaky YouTube test.** It fails on "Text file busy".
 - **The live voice-gateway accepts any origin.** Add `origins` to its `gateway.toml`.
-- **Traccar's trips have no backup.** Its database sits on unzen's single root disk.
+- **Traccar's trips have no backup.** Its database sits on the routing host's single root disk.
