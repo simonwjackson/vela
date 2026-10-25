@@ -18,8 +18,20 @@ Open items from the first build's reviews (2026-10-25). They live here until Vel
 - **No Vela-side co-driver client yet.** Build the SurfaceLink client (`wss://assistant.<tailnet>/people/<name>/surface`), the car tools on the phone, push to talk through voice-gateway (`?model=simon`), co-driver speech, the talk button, and the "Hey Vela" wake word (ADR 0009).
 - **One directions request at a time.** Vela must not send a second `directions.request` until the first one is answered.
 
+## Design: what the Signal mockups need from the app
+The complete Signal design (2026-10-25) draws these states, but the app cannot reach them yet.
+- **Route preview.** `start()` routes and starts in one step. The design shows the time, distance and Start before the route begins.
+- **Stops on the way.** Adding, removing and reordering a stop on the way has no API, and `Guidance` does not carry stops on the way.
+- **Roundabout exit number.** `Stop` has no exit count, so the roundabout glyph cannot show its numeral.
+- **A manual Daylight contrast switch.** Settings shows Automatic, On and Off. Only Automatic exists.
+- **Speed-limit thresholds.** The design shows the limit when the speed is 5 km/h over it for 3 s. Those numbers are a guess.
+- **Co-driver display names.** The assistant gives persona ids only. The design says "Your co-driver" in sentences when no display name exists. The picker descriptions for Navigator, Companion and Guide are placeholders.
+
+## Decisions to make
+- **Typing a destination while the car moves.** Nothing says whether search is blocked while moving. The design draws it as allowed.
+- **A word for a stop on the way.** CONTEXT.md uses "Stop" for a turn or the Destination; the design's "Add stop" means a fuel or food stop on the way. Pick a separate word.
+
 ## Services (track in their own repos)
 - **Ossicle /comics accepts cross-site writes.** It has no origin check on POST.
 - **Ossicle has a flaky YouTube test.** It fails on "Text file busy".
-- **The live voice-gateway accepts any origin.** Add `origins` to its `gateway.toml`.
 - **Traccar's trips have no backup.** Its database sits on the routing host's single root disk.

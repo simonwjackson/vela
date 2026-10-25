@@ -46,8 +46,8 @@ The driver's always-on assistant on the home fleet. Vela is one of its surfaces,
 _Avoid_: Brain, backend, bot
 
 **Talk**:
-The driver presses the talk target and speaks. The microphone is open only while the driver speaks, and pressing talk stops a Co-driver mid-sentence.
-_Avoid_: Wake word, listening mode
+The driver presses the talk target, or says "Hey Vela", and speaks. The wake word runs on the phone and keeps the microphone open for it alone (ADR 0009); nothing leaves the phone until it is heard. Pressing talk stops a Co-driver mid-sentence.
+_Avoid_: Listening mode
 
 ## Navigation
 
