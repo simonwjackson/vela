@@ -14,7 +14,7 @@ const config: VelaConfig = {
     assistant: "https://assistant.test",
     voice: "https://voice.test",
     valhalla: "https://valhalla.test",
-    traccar: "https://traccar.test:5055",
+    traccar: "https://osmand.traccar.test",
   },
   photonUrl: "https://photon.test",
   traccarDeviceId: "car-test",
@@ -39,15 +39,19 @@ function drive(opts: { parkedSec: number; drivingSec: number; startAt?: number }
   return fixes;
 }
 
-/** An in-process Traccar OsmAnd endpoint. */
+/**
+ * An in-process Traccar OsmAnd endpoint as a browser sees it: it sends no CORS headers, so a
+ * no-cors request resolves with an opaque response (status 0, unreadable), or rejects without signal.
+ */
 class TraccarServer {
-  behavior: "ok" | "no-signal" | "unknown-device" = "ok";
+  behavior: "ok" | "no-signal" = "ok";
   readonly received: URL[] = [];
-  readonly fetch: typeof fetch = async (input) => {
+  readonly inits: (RequestInit | undefined)[] = [];
+  readonly fetch: typeof fetch = async (input, init) => {
+    this.inits.push(init);
     if (this.behavior === "no-signal") throw new TypeError("Failed to fetch");
-    if (this.behavior === "unknown-device") return new Response("", { status: 400 });
     this.received.push(new URL(String(input)));
-    return new Response("", { status: 200 });
+    return Response.error();
   };
 }
 
@@ -104,7 +108,7 @@ describe("moving and parked", () => {
 
 describe("TripsReporter", () => {
   test("OsmAnd query: Unix seconds, knots, bearing, accuracy", () => {
-    const url = new URL(osmAndUrl("https://traccar.test:5055", "car-test", { lat: 10.1234567, lng: 20.5, at: T0 + 999, accuracyM: 4, speedMps: 10, headingDeg: 91 }));
+    const url = new URL(osmAndUrl("https://osmand.traccar.test", "car-test", { lat: 10.1234567, lng: 20.5, at: T0 + 999, accuracyM: 4, speedMps: 10, headingDeg: 91 }));
     expect(Object.fromEntries(url.searchParams)).toEqual({
       id: "car-test",
       lat: "10.123457",
@@ -114,7 +118,8 @@ describe("TripsReporter", () => {
       speed: "19.44",
       bearing: "91.0",
     });
-    expect(url.origin).toBe("https://traccar.test:5055");
+    expect(url.origin).toBe("https://osmand.traccar.test");
+    expect(url.pathname).toBe("/");
   });
 
   test("online: each moving fix is sent as it is recorded", async () => {
@@ -125,7 +130,11 @@ describe("TripsReporter", () => {
     for (const fix of drive({ parkedSec: 5, drivingSec: 10 }).slice(0, 15)) fixes.push(fix);
     await trips.flush();
     expect(traccar.received).toHaveLength(10);
+    // An opaque answer counts as delivered: its status cannot be read.
     expect(trips.queued).toBe(0);
+    expect(trips.status.lastError).toBeUndefined();
+    for (const init of traccar.inits) expect(init).toMatchObject({ method: "GET", mode: "no-cors", keepalive: true });
+    expect(traccar.received[0]?.origin).toBe("https://osmand.traccar.test");
     expect(trips.status.moving).toBe(true);
     stop();
     trips.dispose();
@@ -163,16 +172,17 @@ describe("TripsReporter", () => {
     second.dispose();
   });
 
-  test("a failed send retries later and never reorders", async () => {
+  test("a rejected send stays queued, retries later and never reorders", async () => {
     vi.useFakeTimers({ now: T0 });
     try {
       const traccar = new TraccarServer();
-      traccar.behavior = "unknown-device";
+      // The phone believes it is online, but the requests fail (a dead zone with bars).
+      traccar.behavior = "no-signal";
       const trips = createTripsReporter({ config, store: new InMemoryStore(), fetcher: traccar.fetch, network: new SwitchableNetwork() });
       for (const fix of drive({ parkedSec: 0, drivingSec: 5 })) trips.record(fix);
       await vi.advanceTimersByTimeAsync(0);
       expect(trips.queued).toBe(5);
-      expect(trips.status.lastError).toContain("car-test");
+      expect(trips.status.lastError).toContain("No signal");
       traccar.behavior = "ok";
       await vi.advanceTimersByTimeAsync(30_000);
       expect(trips.queued).toBe(0);

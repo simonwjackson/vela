@@ -9,6 +9,12 @@
  *
  * Fixes wait in a queue on the device and are sent oldest first, one at a time, with their
  * original timestamps. A failed send stops the flush; the queue keeps its order.
+ *
+ * The OsmAnd endpoint sends no CORS headers, so requests use `mode: "no-cors"` and the answer is
+ * opaque: its status cannot be read. A fetch that resolves counts as delivered. A fetch that
+ * rejects (no signal) counts as not delivered, and the fix stays queued. Traccar registers
+ * unknown device ids itself (registerUnknown), so a rejected id is not a case to handle.
+ * A send that times out but did reach Traccar is sent again; Traccar then stores it twice.
  */
 import type { Fix, TripsReporter, VelaConfig } from "../contract";
 import type { Network } from "../nav/engine";
@@ -102,10 +108,11 @@ export function createTripsReporter(deps: TripsDeps): TripsEngine {
   async function send(row: Row): Promise<void> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), SEND_TIMEOUT_MS);
-    let res: Response;
     try {
-      res = await fetcher(osmAndUrl(deps.config.origins.traccar, deps.config.traccarDeviceId, fromRow(row)), {
+      await fetcher(osmAndUrl(deps.config.origins.traccar, deps.config.traccarDeviceId, fromRow(row)), {
         method: "GET",
+        mode: "no-cors",
+        keepalive: true,
         signal: controller.signal,
       });
     } catch (error) {
@@ -113,9 +120,6 @@ export function createTripsReporter(deps: TripsDeps): TripsEngine {
     } finally {
       clearTimeout(timer);
     }
-    // Traccar answers 400 when it does not know the device id. Keep the fixes; the id may be added.
-    if (res.status === 400) throw new Error(`Traccar does not accept device "${deps.config.traccarDeviceId}"`);
-    if (!res.ok) throw new Error(`Traccar answered HTTP ${res.status}`);
   }
 
   async function drain(): Promise<void> {
