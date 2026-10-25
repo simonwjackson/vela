@@ -47,11 +47,13 @@ export type GpsStatus = "waiting" | "ok" | "denied" | "unavailable";
 
 /** navigator.geolocation.watchPosition with high accuracy. Starts at construction. */
 export class GeolocationFixSource extends ManualFixSource {
+  private readonly geolocation: Geolocation | undefined;
   private watchId: number | undefined;
   status: GpsStatus = "waiting";
 
   constructor(geolocation: Geolocation | undefined = globalThis.navigator?.geolocation) {
     super();
+    this.geolocation = geolocation;
     if (!geolocation) {
       this.status = "unavailable";
       return;
@@ -74,11 +76,10 @@ export class GeolocationFixSource extends ManualFixSource {
       },
       { enableHighAccuracy: true, maximumAge: 0, timeout: 30_000 },
     );
-    this.stop = () => {
-      if (this.watchId !== undefined) geolocation.clearWatch(this.watchId);
-      this.watchId = undefined;
-    };
   }
 
-  stop: () => void = () => {};
+  stop(): void {
+    if (this.watchId !== undefined) this.geolocation?.clearWatch(this.watchId);
+    this.watchId = undefined;
+  }
 }
