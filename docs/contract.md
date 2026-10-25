@@ -26,7 +26,7 @@ Rules:
 | Service | What Vela calls | Notes |
 |---|---|---|
 | Ossicle | `POST /rpc` (`library.episodes`, `podcast.episodes`, `queue.list`, `position.list`, `position.write`, `position.markPlayed`, `episode.chapters`, `episode.sponsorSegments`), `GET /audio/:id`, `GET /covers/:id`, `/comics/*` for Books (`books.list`, `narration.timeline`, `narration.prepare`, `book.position.read/write`) | Cross-origin after its allowlist change (ADR 0001). Position writes carry `baseRevision` and `deviceId`, and may return `Conflict`. |
-| Pyxis | `POST /rpc` (`auth.device.claim`, `session.create`, `session.command.run`, `library.album.list/get`, `source.search.run`, `listen.event.append`), `GET /realtime` WebSocket, `GET /stream/:trackId` | Bearer token. The service worker adds it to `/stream` requests. The car hosts its own session (ADR 0003). |
+| Pyxis | `POST /rpc` (`auth.device.claim`, `session.create`, `session.command.run`, `library.albums.list`, `source.album.get`, `source.search.run`, `listen.events.append`; every call but the auth ones sends `x-pyxis-contract`), `GET /realtime` WebSocket, `GET /stream/:trackId` | Bearer token. The service worker adds it to `/stream` requests. The car hosts its own session (ADR 0003). |
 | Valhalla | `POST /route` with `costing: auto`, `directions_options.units: kilometers` | The whole Route and every instruction are fetched once at start, then guidance runs offline (ADR 0002). |
 | Photon | `GET /api?q=…&lat=…&lon=…` | Behind one swappable function. |
 | Traccar | OsmAnd protocol: `GET /?id=…&lat=…&lon=…&timestamp=…&speed=…` on the OsmAnd port | Queued offline, sent with original timestamps (ADR 0008). |

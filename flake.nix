@@ -18,7 +18,7 @@
           pname = "vela";
           version = "0.0.0";
           src = self;
-          npmDepsHash = pkgs.lib.fakeHash;
+          npmDepsHash = "sha256-4NL0vQm+2v5baGp9jAjB/phMuQrCcKhEPDPtfypL/d0=";
           installPhase = "cp -r dist $out";
         };
       });

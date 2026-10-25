@@ -7,7 +7,7 @@ in {
     enable = lib.mkEnableOption "the Vela car dashboard";
     package = lib.mkOption {
       type = lib.types.package;
-      default = self.packages.${pkgs.system}.default;
+      default = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
       description = "The built static app.";
     };
     port = lib.mkOption { type = lib.types.port; default = 4590; description = "Loopback port for the static server."; };
