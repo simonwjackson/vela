@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<title>Vela</title>
+<rect width="512" height="512" rx="112" fill="#08090a"/>
+<rect x="1.5" y="1.5" width="509" height="509" rx="111" fill="none" stroke="#fff" stroke-opacity=".09" stroke-width="3"/>
+<g transform="translate(256 256) scale(14.5) translate(-12 -12)" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="2">
+<path stroke="#8a8f98" d="M9.65 7.2c-2.4 3.3-4.2 7.6-4.9 12.5h4.9z"/>
+<path stroke="#f7f8f8" d="M12.65 3.7c4 3.7 6.2 9.4 6.6 16H12.65z"/>
+</g>
+</svg>
