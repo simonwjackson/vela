@@ -33,6 +33,24 @@ Rules:
 | Assistant | `WebSocket <assistantSurfacePath>` on `origins.assistant` (default `/surface`), the SurfaceLink protocol in `src/contract/surface.ts` | Car tools run in Vela. The assistant side is built in its own repo. The assistant serves one surface per person, so the host configuration sets the path in `/config.json`; it starts with `/`, and the person's name never goes in this repository. |
 | voice-gateway | `WebSocket /v1/realtime?model=<talkModel>` (OpenAI Realtime subset, pcm16 at 24 kHz), push to talk; `talkModel` comes from `/config.json` (default `assistant`), since the gateway's name for the driver's assistant is personal | The Co-driver's voice. Speech-to-text and voices stay on the fleet. Message order: `src/codriver/talk.ts`. The "Hey Vela" wake word never calls it; it runs on the phone (ADR 0009). |
 
+## Install and updates
+
+Vela is an installable web app (`public/manifest.webmanifest`). The brand mark and every icon file come from one script, `tools/render-icons.sh` (a Nix shebang script; run it after changing the mark, and commit what it writes).
+
+Nobody may get stuck on an old version. The pieces:
+
+| Piece | Where | What it does |
+|---|---|---|
+| Build version | `vite.config.ts`, `flake.nix` | `VELA_VERSION` (the flake's short git revision, else `dev`) goes into the page and into `/sw.js`, so every release is a byte-different worker. Settings shows `Vela <version>`. |
+| `AppStatus.checkForUpdate()` | `src/shell/app-status.ts` | Calls `registration.update()` and waits until a new worker takes over. Returns `"updated"`, `"current"` or `"failed"`; never rejects. |
+| Automatic checks | `src/shell/app-status.ts` | Every 30 minutes, when the page becomes visible, and when the network comes back; at most one a minute. |
+| `AppStatus.restart()` | `src/shell/app-status.ts` | Reloads whatever the update state. |
+| The update chip | `src/ui/app/screen.ts` | "Update ready, tap to restart". Never during guidance: only with no route, or once arrived. |
+| The version row | Settings | "Check for updates", "Checking for updates", "Up to date" (for 4 s), "Update ready, restart". A new version or a failed check reloads. |
+| The boot-error escape | `src/sw/reset.ts` | "Try again" on "Vela can't start" unregisters the worker and deletes the `vela-shell-*` caches, then reloads. Offline audio, downloads, narration, the wake-word model and the Pyxis credentials stay. |
+
+The host must serve `/`, `/sw.js`, `/config.json` and `/manifest.webmanifest` with `Cache-Control: no-store` (or `no-cache`), the icons (`/icons/*`, `/icon.svg`, `/favicon.*`, `/apple-touch-icon.png`) with `no-cache`, and `.webmanifest` as `application/manifest+json`. `/assets/*` are content-hashed and may be cached for a year. The service worker never caches the manifest or the icons.
+
 ## Done means
 
 - `just verify` passes.

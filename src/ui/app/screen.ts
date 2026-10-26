@@ -89,6 +89,8 @@ export interface UiState {
   toast?: { text: string; icon: GlyphName } | undefined;
   /** Per-Source library lists, fetched when the library opens. */
   library: Partial<Record<SourceId, Fetch<Item>>>;
+  /** The driver's update check in Settings: running, or found nothing (shown for TOAST_MS). */
+  update?: "checking" | "current" | undefined;
 }
 
 /** What the screen remembers across engine states. */
@@ -333,10 +335,14 @@ export type SheetView =
       wifiOnly: boolean;
       trips: string;
       version?: string | undefined;
+      /** The version row's action: check, checking, an update to restart into, or up to date. */
+      update: SettingsUpdate;
     }
   | { kind: "co-driver"; rows: readonly { id: string; title: string; sub?: string | undefined; icon: GlyphName; current: boolean }[] }
   | { kind: "sound-mode"; mode: "sounds" | "co-driver"; note: string }
   | { kind: "trips"; queued: number; waiting: string; error?: string | undefined };
+
+export type SettingsUpdate = "check" | "checking" | "ready" | "current";
 
 export interface Screen {
   id: StateId;
@@ -627,7 +633,8 @@ function topView(input: ScreenInput): TopView {
     chip = { kind: "status", icon: "nosignal", text: "No signal, using saved route", warn: true };
   } else if (app.soundBlocked) chip = { kind: "button", icon: "soundOff", text: "Tap to turn on sounds", warn: true, toast: false, action: "sounds-on" };
   else if (ui.toast) chip = { kind: "button", icon: ui.toast.icon, text: ui.toast.text, warn: false, toast: true, action: "toast-dismiss" };
-  else if (app.updateReady && (nav.kind === "idle" || nav.kind === "error")) {
+  // The update never interrupts guidance: it shows with no route, or once the driver has arrived.
+  else if (app.updateReady && (nav.kind === "idle" || nav.kind === "error" || nav.kind === "arrived")) {
     chip = { kind: "button", icon: "retry", text: "Update ready, tap to restart", warn: false, toast: true, action: "update" };
   }
   const speeding = memory.overSince !== undefined && now - memory.overSince >= OVER_LIMIT_MS && overLimit(readouts);
@@ -942,6 +949,7 @@ function sheetView(input: ScreenInput, kb: Screen["keyboard"]): SheetView | unde
         wifiOnly: input.settings.downloadsOnWifiOnly,
         trips: input.trips.queued ? `${count(input.trips.queued)} waiting to send` : "All sent",
         version: input.version,
+        update: input.app.updateReady ? "ready" : (ui.update ?? "check"),
       };
     }
     case "co-driver":
@@ -1046,7 +1054,7 @@ function stateOf(s: Screen, input: ScreenInput): StateId {
   const chip = s.top?.chip;
   if (chip?.kind === "status" && chip.text === "GPS lost") return "gps-lost";
   if (chip?.kind === "button" && chip.action === "sounds-on") return "sound-blocked";
-  if (chip?.kind === "button" && chip.action === "update") return "update";
+  if (chip?.kind === "button" && chip.action === "update" && nav.kind !== "arrived") return "update";
   if (nav.kind === "routing") return "routing";
   if (nav.kind === "error") return routeError(nav.message);
   if (nav.kind === "idle" || nav.kind === "preview") {

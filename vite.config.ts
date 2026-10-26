@@ -1,11 +1,12 @@
 import { defineConfig } from "vitest/config";
 
 /**
- * The build version shown in Settings: the package version, which npm passes to every script
- * (`npm run build`, also inside the Nix build). Without npm, "dev".
+ * The build version, shown in Settings ("Vela 1a2b3c4") and stamped into /sw.js so every release
+ * gives the browser a byte-different worker to install. The Nix build sets VELA_VERSION to the
+ * flake's short git revision (flake.nix); any other build is "dev".
  */
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env ?? {};
-const version = env.npm_package_version ?? "dev";
+const version = env.VELA_VERSION?.trim() || "dev";
 
 export default defineConfig({
   define: { __VELA_VERSION__: JSON.stringify(version) },

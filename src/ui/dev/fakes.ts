@@ -26,6 +26,7 @@ import type {
   SourceId,
   TalkState,
   TripsReporter,
+  UpdateCheck,
   WakeState,
   WakeWord,
 } from "../app/contract";
@@ -230,6 +231,9 @@ export class FakeApp implements AppStatus {
   soundBlocked = false;
   permissions: { location: Permission; mic: Permission } = { location: "granted", mic: "granted" };
   firstRun = false;
+  /** What the next `checkForUpdate` finds, and how long it takes (the dev page shows "Checking"). */
+  checkResult: UpdateCheck = "current";
+  checkMs = 0;
   calls: Call[] = [];
   private subs = new Subs<[]>();
   set(patch: Partial<Pick<FakeApp, "updateReady" | "soundBlocked" | "permissions" | "firstRun">>): void {
@@ -238,6 +242,20 @@ export class FakeApp implements AppStatus {
   }
   applyUpdate(): void {
     this.calls.push(["applyUpdate"]);
+  }
+  checkForUpdate(): Promise<UpdateCheck> {
+    this.calls.push(["checkForUpdate"]);
+    const result = this.checkResult;
+    return new Promise((resolve) =>
+      setTimeout(() => {
+        // An update that installs takes over, as the real worker does.
+        if (result === "updated") this.set({ updateReady: true });
+        resolve(result);
+      }, this.checkMs),
+    );
+  }
+  restart(): void {
+    this.calls.push(["restart"]);
   }
   unblockSound(): void {
     this.calls.push(["unblockSound"]);

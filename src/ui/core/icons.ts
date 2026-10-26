@@ -61,6 +61,8 @@ export const glyph = {
   contrast: s('<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17M12 8h4.5M12 12h5.5M12 16h4.5"/>'),
   trip: s('<circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 18h6.5a3 3 0 0 0 0-6h-5a3 3 0 0 1 0-6H16"/>'),
   screens: s('<rect x="2.5" y="5" width="11" height="8" rx="1.5"/><rect x="10.5" y="11" width="11" height="8" rx="1.5"/>'),
+  // Vela's brand mark: two sails, as tools/render-icons.sh draws the app icon.
+  vela: s('<path d="M12.65 3.7c4 3.7 6.2 9.4 6.6 16H12.65z"/><path d="M9.65 7.2c-2.4 3.3-4.2 7.6-4.9 12.5h4.9z"/>'),
   wifi: s('<path d="M2.5 9a14 14 0 0 1 19 0M5.5 12.5a9.5 9.5 0 0 1 13 0M8.5 16a5 5 0 0 1 7 0"/><path d="M12 19.5h.01"/>'),
 } as const;
 

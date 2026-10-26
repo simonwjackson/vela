@@ -135,3 +135,252 @@ test("first run lasts until finished, and is remembered", () => {
   expect(h.values.get("vela.firstRunDone")).toBe("1");
   expect(harness({ firstRunDone: true }).app.firstRun).toBe(false);
 });
+
+// ---- Update checks -----------------------------------------------------------------------------
+
+class Doc extends Events {
+  visibilityState = "visible";
+  removeEventListener(): void {}
+}
+
+class Incoming extends Events {
+  constructor(public state: string) {
+    super();
+  }
+  removeEventListener(): void {}
+  become(state: string): void {
+    this.state = state;
+    this.fire("statechange");
+  }
+}
+
+/**
+ * An app with a fake registration. `next` is what the next `update()` finds: nothing new, a new
+ * worker that installs, or a failed fetch. Timers are manual: `tick(ms)` runs what is due.
+ */
+function updates(opts: { registered?: boolean; next?: "nothing" | "new" | "fail" | "hang" } = {}) {
+  const worker = Object.assign(new Events(), { controller: {}, removeEventListener: () => undefined });
+  const page = new Doc();
+  const network = Object.assign(new Events(), { removeEventListener: () => undefined });
+  let clock = 0;
+  const timers: { at: number; fn: () => void; every?: number; id: number }[] = [];
+  let ids = 0;
+  const schedule = (fn: () => void, ms: number, every?: number) => {
+    const t = { at: clock + ms, fn, id: ++ids, ...(every ? { every } : {}) };
+    timers.push(t);
+    return t.id;
+  };
+  const drop = (id: unknown) => {
+    const i = timers.findIndex((t) => t.id === id);
+    if (i >= 0) timers.splice(i, 1);
+  };
+  const state = { next: opts.next ?? "nothing", updates: 0, incoming: undefined as Incoming | undefined };
+  const registration = {
+    installing: null as Incoming | null,
+    waiting: null as Incoming | null,
+    update: () => {
+      state.updates++;
+      if (state.next === "fail") return Promise.reject(new TypeError("Failed to fetch"));
+      if (state.next === "hang") return new Promise(() => undefined);
+      if (state.next === "new") {
+        state.incoming = new Incoming("installing");
+        registration.installing = state.incoming;
+      }
+      return Promise.resolve(registration);
+    },
+  };
+  const reloads: number[] = [];
+  const app = createAppStatus({
+    audio: new SuspendedAudio(),
+    worker,
+    updates: {
+      registration: async () => (opts.registered === false ? undefined : registration),
+      page,
+      network,
+      now: () => clock,
+      setTimeout: (fn, ms) => schedule(fn, ms),
+      clearTimeout: drop,
+      setInterval: (fn, ms) => schedule(fn, ms, ms),
+      clearInterval: drop,
+    },
+    reload: () => reloads.push(1),
+    nav: { state: { kind: "idle" }, subscribe: () => () => undefined },
+    settings: { value: { wakeWord: false }, subscribe: () => () => undefined },
+  });
+  const flush = async () => {
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+  };
+  return {
+    app,
+    state,
+    page,
+    network,
+    worker,
+    reloads,
+    registration,
+    flush,
+    async tick(ms: number) {
+      clock += ms;
+      for (const t of [...timers].sort((a, b) => a.at - b.at)) {
+        if (t.at > clock) continue;
+        if (t.every) t.at += t.every;
+        else drop(t.id);
+        t.fn();
+      }
+      await flush();
+    },
+    /** The new worker activates and claims the page, as Vela's worker does (skipWaiting + claim). */
+    takeOver() {
+      state.incoming?.become("activated");
+      worker.fire("controllerchange");
+    },
+  };
+}
+
+describe("checkForUpdate", () => {
+  test("nothing new: current", async () => {
+    const u = updates();
+    expect(await u.app.checkForUpdate()).toBe("current");
+    expect(u.state.updates).toBe(1);
+    expect(u.app.updateReady).toBe(false);
+  });
+
+  test("a new version: waits until it takes over, then updated (and the chip's flag is set)", async () => {
+    const u = updates({ next: "new" });
+    let result: string | undefined;
+    void u.app.checkForUpdate().then((r) => {
+      result = r;
+    });
+    await u.flush();
+    expect(result).toBeUndefined();
+    u.takeOver();
+    await u.flush();
+    expect(result).toBe("updated");
+    expect(u.app.updateReady).toBe(true);
+    // Once ready, a check does not fetch again.
+    expect(await u.app.checkForUpdate()).toBe("updated");
+    expect(u.state.updates).toBe(1);
+  });
+
+  test("a new version that dies while installing: failed", async () => {
+    const u = updates({ next: "new" });
+    const result = u.app.checkForUpdate();
+    await u.flush();
+    u.state.incoming?.become("redundant");
+    expect(await result).toBe("failed");
+    expect(u.app.updateReady).toBe(false);
+  });
+
+  test("a new version that never takes over: failed after the install timeout", async () => {
+    const u = updates({ next: "new" });
+    let result: string | undefined;
+    void u.app.checkForUpdate().then((r) => {
+      result = r;
+    });
+    await u.flush();
+    await u.tick(29_000);
+    expect(result).toBeUndefined();
+    await u.tick(1_000);
+    expect(result).toBe("failed");
+  });
+
+  test("no signal, a hung fetch, or no service worker: failed, and nothing reloads by itself", async () => {
+    expect(await updates({ next: "fail" }).app.checkForUpdate()).toBe("failed");
+    expect(await updates({ registered: false }).app.checkForUpdate()).toBe("failed");
+    const hung = updates({ next: "hang" });
+    let result: string | undefined;
+    void hung.app.checkForUpdate().then((r) => {
+      result = r;
+    });
+    await hung.tick(15_000);
+    expect(result).toBe("failed");
+    expect(hung.reloads).toHaveLength(0);
+  });
+
+  test("two taps share one check", async () => {
+    const u = updates();
+    const [a, b] = await Promise.all([u.app.checkForUpdate(), u.app.checkForUpdate()]);
+    expect([a, b]).toEqual(["current", "current"]);
+    expect(u.state.updates).toBe(1);
+  });
+
+  test("restart always reloads; applyUpdate only with an update ready", () => {
+    const u = updates();
+    u.app.applyUpdate();
+    expect(u.reloads).toHaveLength(0);
+    u.app.restart();
+    expect(u.reloads).toHaveLength(1);
+  });
+});
+
+describe("automatic checks", () => {
+  test("when Vela becomes visible again, not while hidden", async () => {
+    const u = updates();
+    await u.tick(2 * 60_000);
+    u.page.visibilityState = "hidden";
+    u.page.fire("visibilitychange");
+    await u.flush();
+    expect(u.state.updates).toBe(0);
+    u.page.visibilityState = "visible";
+    u.page.fire("visibilitychange");
+    await u.flush();
+    expect(u.state.updates).toBe(1);
+  });
+
+  test("when the network comes back", async () => {
+    const u = updates();
+    u.network.fire("online");
+    await u.flush();
+    expect(u.state.updates).toBe(1);
+  });
+
+  test("on the 30 minute timer", async () => {
+    const u = updates();
+    await u.tick(30 * 60_000 - 1);
+    expect(u.state.updates).toBe(0);
+    await u.tick(1);
+    expect(u.state.updates).toBe(1);
+    await u.tick(30 * 60_000);
+    expect(u.state.updates).toBe(2);
+  });
+
+  test("at most one a minute, so a phone that wakes often does not hammer the host", async () => {
+    const u = updates();
+    u.network.fire("online");
+    await u.flush();
+    u.page.fire("visibilitychange");
+    await u.tick(59_000);
+    u.network.fire("online");
+    await u.flush();
+    expect(u.state.updates).toBe(1);
+    await u.tick(1_000);
+    u.page.fire("visibilitychange");
+    await u.flush();
+    expect(u.state.updates).toBe(2);
+    // The driver's tap is never held back.
+    await u.app.checkForUpdate();
+    expect(u.state.updates).toBe(3);
+  });
+
+  test("an automatic check that finds a new version makes the update ready", async () => {
+    const u = updates({ next: "new" });
+    let changes = 0;
+    u.app.subscribe(() => changes++);
+    u.network.fire("online");
+    await u.flush();
+    u.takeOver();
+    await u.flush();
+    expect(u.app.updateReady).toBe(true);
+    expect(changes).toBe(1);
+    // Ready: no more checks.
+    await u.tick(30 * 60_000);
+    expect(u.state.updates).toBe(1);
+  });
+
+  test("dispose stops the timer", async () => {
+    const u = updates();
+    u.app.dispose();
+    await u.tick(60 * 60_000);
+    expect(u.state.updates).toBe(0);
+  });
+});

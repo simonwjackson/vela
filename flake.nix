@@ -7,6 +7,9 @@
     let
       systems = [ "x86_64-linux" "aarch64-linux" ];
       forAll = f: nixpkgs.lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
+      # The build's version: the short git revision this flake was built from. Settings shows it,
+      # and the build stamps it into /sw.js so every release is a new worker (vite.config.ts).
+      velaVersion = self.shortRev or self.dirtyShortRev or "dev";
     in {
       devShells = forAll (pkgs: {
         default = pkgs.mkShell { packages = [ pkgs.nodejs_22 pkgs.just ]; };
@@ -16,9 +19,10 @@
       packages = forAll (pkgs: {
         default = pkgs.buildNpmPackage {
           pname = "vela";
-          version = "0.0.0";
+          version = "0-${velaVersion}";
           src = self;
           npmDepsHash = "sha256-4NL0vQm+2v5baGp9jAjB/phMuQrCcKhEPDPtfypL/d0=";
+          env.VELA_VERSION = velaVersion;
           installPhase = "cp -r dist $out";
         };
       });

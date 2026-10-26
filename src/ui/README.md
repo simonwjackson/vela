@@ -27,6 +27,8 @@ memory  ─┘        │
 `npm run dev`, then open `/dev.html?state=near&stress=1&daylight=1`. Without `state` the page lists
 all of them. Arrow keys step through states; S and D flip worst-case data and Daylight contrast.
 `dev.html` is not a build input, so it stays out of the production bundle.
+`&update=ready|checking|current` sets the update state (the chip, and Settings' version row);
+`&check=current|updated|failed` is what a tap on "Check for updates" finds.
 
 ## Rules the code keeps
 

@@ -92,7 +92,16 @@ export function composeVela(config: LoadedConfig): VelaApp {
 
   const app: VelaAppStatus = createAppStatus({
     audio,
-    ...("serviceWorker" in navigator ? { worker: navigator.serviceWorker } : {}),
+    ...("serviceWorker" in navigator
+      ? {
+          worker: navigator.serviceWorker,
+          updates: {
+            registration: () => navigator.serviceWorker.getRegistration("/"),
+            page: document,
+            network: window,
+          },
+        }
+      : {}),
     reload: () => location.reload(),
     ...("permissions" in navigator ? { permissions: navigator.permissions } : {}),
     storage: localStorage,

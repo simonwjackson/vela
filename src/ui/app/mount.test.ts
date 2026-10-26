@@ -3,6 +3,7 @@ import { NOW, fixtures, guidance } from "../dev/fixtures";
 import { SCENARIOS } from "../dev/scenarios";
 import type { AppDeps } from "./contract";
 import { type MountOptions, mount, mountBootError } from "./mount";
+import { TOAST_MS } from "./screen";
 
 const settle = () => new Promise((r) => setTimeout(r, 5));
 
@@ -277,6 +278,67 @@ test("Chips: sounds blocked and the update are taps", async () => {
   const u = await open("update");
   await u.tap('[data-action="update"]');
   expect(u.f.app.calls).toContainEqual(["applyUpdate"]);
+});
+
+describe("Settings: the version row", () => {
+  test("shows the build and checks for updates; nothing new shows Up to date for a few seconds", async () => {
+    const h = await open("settings", { version: "1a2b3c4" });
+    expect(h.$(".talk-version").textContent).toContain("Vela 1a2b3c4");
+    vi.useFakeTimers();
+    try {
+      h.f.app.checkMs = 1_000;
+      h.$('[data-action="update-check"]').click();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(h.$(".talk-version [role=status]").textContent).toBe("Checking for updates");
+      expect(h.root.querySelector('[data-action="update-check"]')).toBeNull();
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(h.f.app.calls).toEqual([["checkForUpdate"]]);
+      expect(h.$(".talk-version [role=status]").textContent).toBe("Up to date");
+      await vi.advanceTimersByTimeAsync(TOAST_MS);
+      expect(h.$('[data-action="update-check"]').textContent).toBe("Check for updates");
+      expect(h.f.app.calls).not.toContainEqual(["restart"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("a new version: restarts into it", async () => {
+    const h = await open("settings");
+    h.f.app.checkResult = "updated";
+    await h.tap('[data-action="update-check"]');
+    await settle();
+    expect(h.f.app.calls).toEqual([["checkForUpdate"], ["restart"]]);
+  });
+
+  test("a failed check still reloads, so the driver always has a way out", async () => {
+    const h = await open("settings");
+    h.f.app.checkResult = "failed";
+    await h.tap('[data-action="update-check"]');
+    await settle();
+    expect(h.f.app.calls).toEqual([["checkForUpdate"], ["restart"]]);
+  });
+
+  test("an update already waiting: Update ready, restart", async () => {
+    const h = await open("settings");
+    h.f.app.set({ updateReady: true });
+    await settle();
+    expect(h.$('[data-action="update-check"]').textContent).toBe("Update ready, restart");
+    await h.tap('[data-action="update-check"]');
+    expect(h.f.app.calls).toEqual([["applyUpdate"]]);
+  });
+});
+
+test("Boot error: Try again runs the reset once", async () => {
+  const root = document.createElement("div");
+  document.body.append(root);
+  const retry = vi.fn();
+  const unmount = mountBootError(root, "The config has no route server address.", { retry });
+  const button = root.querySelector<HTMLElement>('[data-action="boot-retry"]');
+  button?.click();
+  button?.click();
+  expect(retry).toHaveBeenCalledOnce();
+  unmount();
+  root.remove();
 });
 
 test("First run asks for permissions and finishes once both are answered", async () => {

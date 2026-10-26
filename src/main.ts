@@ -1,10 +1,13 @@
 /**
  * Shell. Loads config, registers the service worker, builds every engine (src/shell/compose.ts)
- * and mounts the Signal UI with them. A failed start shows the boot error screen.
+ * and mounts the Signal UI with them. A failed start shows the boot error screen; its "Try again"
+ * removes the service worker and the app shell caches before it reloads (src/sw/reset.ts).
+ * AppStatus looks for new versions (src/shell/app-status.ts).
  */
 import { loadConfig } from "./contract";
 import { composeVela } from "./shell/compose";
 import { registerListeningWorker } from "./sw/register";
+import { browserShellReset } from "./sw/reset";
 import { mount, mountBootError } from "./ui/app/mount";
 
 async function main(): Promise<void> {
@@ -24,14 +27,12 @@ async function main(): Promise<void> {
         location.reload();
         return;
       }
-      // A car app stays open for hours: look for a new version every 30 minutes.
-      setInterval(() => void registration.update().catch(() => undefined), 30 * 60_000);
     }
 
     const vela = composeVela(config);
     mount(root, vela.deps, { version: __VELA_VERSION__, testTurnSound: vela.testTurnSound });
   } catch (error) {
-    mountBootError(root, error instanceof Error ? error.message : String(error));
+    mountBootError(root, error instanceof Error ? error.message : String(error), { retry: browserShellReset() });
   }
 }
 

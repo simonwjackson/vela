@@ -164,11 +164,31 @@ describe("no route", () => {
     expect(s.answer).toMatchObject({ kind: "quiet", text: "Can't reach the route server", button: { action: "route-retry" } });
   });
 
-  test("the update chip shows only with no route", () => {
+  test("the update chip never interrupts guidance: it shows with no route, and once arrived", () => {
     const input = scenarioInput("update", false);
-    expect(screen(input).top?.chip).toMatchObject({ action: "update" });
-    const onRoute = scenarioInput("near", false);
-    expect(screen({ ...onRoute, app: { ...onRoute.app, updateReady: true } }).top?.chip).toBeUndefined();
+    expect(screen(input).top?.chip).toMatchObject({ action: "update", text: "Update ready, tap to restart" });
+    const ready = (id: string) => {
+      const i = scenarioInput(id, false);
+      return { ...i, app: { ...i.app, updateReady: true } };
+    };
+    for (const id of ["near", "now", "reroute", "routing", "gps"]) expect(screen(ready(id)).top?.chip, id).toBeUndefined();
+    const arrived = screen(ready("arrived"));
+    expect(arrived.top?.chip).toMatchObject({ action: "update" });
+    expect(arrived.id).toBe("arrived");
+    // A status chip still wins over it.
+    expect(screen(ready("sound-blocked")).top?.chip).toMatchObject({ action: "sounds-on" });
+  });
+
+  test("Settings: the version row's action follows the update state", () => {
+    const input = scenarioInput("settings", false);
+    const row = (patch: { updateReady?: boolean; update?: "checking" | "current" }) => {
+      const sh = screen({ ...input, version: "1a2b3c4", app: { ...input.app, updateReady: patch.updateReady ?? false }, ui: { ...input.ui, update: patch.update } }).sheet;
+      return sh?.kind === "settings" ? { version: sh.version, update: sh.update } : undefined;
+    };
+    expect(row({})).toEqual({ version: "1a2b3c4", update: "check" });
+    expect(row({ update: "checking" })).toEqual({ version: "1a2b3c4", update: "checking" });
+    expect(row({ update: "current" })).toEqual({ version: "1a2b3c4", update: "current" });
+    expect(row({ updateReady: true, update: "checking" })).toEqual({ version: "1a2b3c4", update: "ready" });
   });
 
   test("status beats toast: sound-blocked over a toast; gps-lost over sound-blocked", () => {

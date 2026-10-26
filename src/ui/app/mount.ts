@@ -15,7 +15,7 @@ import { morphChildren } from "../core/morph";
 import { plan, planVars } from "../core/plan";
 import { fit } from "../view/fit";
 import { coverColor, lightFor } from "../view/light";
-import type { AppDeps, Item, NavState, Place, Readouts, SourceId } from "./contract";
+import type { AppDeps, Item, NavState, Place, Readouts, SourceId, UpdateCheck } from "./contract";
 import { inputOf } from "./input";
 import { renderScreen } from "./render";
 import { type Memory, OVER_LIMIT_MS, type Screen, type ScreenInput, type SheetState, TAP_MS, TOAST_MS, type UiState, bootScreen, overLimit, screen } from "./screen";
@@ -436,6 +436,29 @@ export function mount(root: HTMLElement, deps: AppDeps, options: MountOptions = 
     "trips-send": () => fail(deps.trips.flush()),
     "sounds-on": () => app.unblockSound(),
     update: () => app.applyUpdate(),
+    // Settings: the version row. Ready: restart into it. Otherwise check now; a new version
+    // reloads into it, nothing new shows "Up to date", and a failed check reloads anyway, so the
+    // driver always has a way out of an old or broken version.
+    "update-check": () => {
+      if (app.updateReady) {
+        app.applyUpdate();
+        return;
+      }
+      if (ui.update === "checking") return;
+      setUi({ update: "checking" });
+      const done = (result: UpdateCheck) => {
+        if (result === "current") {
+          setUi({ update: "current" });
+          later(TOAST_MS, () => {
+            if (ui.update === "current") setUi({ update: undefined });
+          });
+          return;
+        }
+        setUi({ update: undefined });
+        app.restart();
+      };
+      app.checkForUpdate().then(done, () => done("failed"));
+    },
     "toast-dismiss": () => setUi({ toast: undefined }),
     "use-here": () => coDriver.choose(coDriver.current.id),
     "setup-location": () => (options.requestLocation ?? requestLocation)(),
@@ -646,8 +669,12 @@ function requestMic(): void {
     .catch(() => undefined);
 }
 
-/** Vela cannot start (no config): the answer only, no Talk. `build` calls this from main.ts. */
-export function mountBootError(root: HTMLElement, message: string): () => void {
+/**
+ * Vela cannot start (no config): the answer only, no Talk. main.ts calls this. `retry` runs on
+ * "Try again" (main.ts removes the service worker and the shell caches, then reloads); the
+ * default is a plain reload.
+ */
+export function mountBootError(root: HTMLElement, message: string, options: { retry?: () => void } = {}): () => void {
   const shell = h("div", { class: "vela" });
   const frame = h("main", { class: "app", "aria-label": "Vela" });
   shell.append(frame);
@@ -660,8 +687,11 @@ export function mountBootError(root: HTMLElement, message: string): () => void {
   frame.dataset.state = "boot-error";
   const s = bootScreen(message);
   frame.replaceChildren(...renderScreen(s, { keyboard: 0 }));
+  let retrying = false;
   const onClick = (e: Event) => {
-    if ((e.target as Element).closest?.('[data-action="boot-retry"]')) location.reload();
+    if (!(e.target as Element).closest?.('[data-action="boot-retry"]') || retrying) return;
+    retrying = true;
+    (options.retry ?? (() => location.reload()))();
   };
   frame.addEventListener("click", onClick);
   return () => {

@@ -22,7 +22,7 @@ import {
   talkBtn,
   timeLeft,
 } from "../view/parts";
-import type { AnswerView, BaseView, CardView, DownloadsView, NowView, PlaceRow, Screen, SheetView, ShelfEntry, TalkView, TopView } from "./screen";
+import type { AnswerView, BaseView, CardView, DownloadsView, NowView, PlaceRow, Screen, SettingsUpdate, SheetView, ShelfEntry, TalkView, TopView } from "./screen";
 import { SOURCES, STOP_KINDS } from "./screen";
 
 export function renderScreen(s: Screen, opts: { keyboard: number }): HTMLElement[] {
@@ -498,7 +498,7 @@ function renderSheet(sv: SheetView, ctx: SheetCtx): HTMLElement {
             setRow({ icon: "download", title: "Downloads", sub: sv.downloads, action: "downloads-open" }),
             setSwitch({ icon: "wifi", title: "Wi-Fi only", sub: "Download only on Wi-Fi", on: sv.wifiOnly, action: "wifi-only" }),
             setRow({ icon: "trip", title: "Trips", sub: sv.trips, action: "trips-open" }),
-            h("div", { class: "talk-foot num" }, sv.version ? `Vela ${sv.version}` : "Vela"),
+            versionRow(sv.version, sv.update),
           ),
         ],
       });
@@ -565,6 +565,33 @@ function renderSheet(sv: SheetView, ctx: SheetCtx): HTMLElement {
         ],
       });
   }
+}
+
+/**
+ * "Vela <version>" and its update action. The action keeps one slot, 56 tall, in every state, so
+ * the row does not jump: a quiet button to check, the status while checking or after a check found
+ * nothing, and a secondary button once an update is ready.
+ */
+function versionRow(version: string | undefined, update: SettingsUpdate): HTMLElement {
+  const name = version ? `Vela ${version}` : "Vela";
+  const end =
+    update === "ready"
+      ? btn({ label: "Update ready, restart", icon: "retry", action: "update-check", cls: "talk-act" })
+      : update === "check"
+        ? btn({ label: "Check for updates", icon: "retry", kind: "quiet", action: "update-check", cls: "talk-act" })
+        : h(
+            "span",
+            { class: "talk-act talk-status", role: "status" },
+            g(update === "current" ? "check" : "retry"),
+            h("span", null, update === "current" ? "Up to date" : "Checking for updates"),
+          );
+  return h(
+    "div",
+    { class: "row talk-row talk-version", "aria-busy": update === "checking" ? "true" : undefined },
+    g("vela", "span", "lead-icon"),
+    h("span", { class: "text" }, h("b", { class: "num" }, name)),
+    end,
+  );
 }
 
 function setRow(o: { icon: Parameters<typeof g>[0]; title: string; sub?: string; action: string }): HTMLElement {

@@ -59,7 +59,22 @@
    have no glyphs: keep the labels where the shared rule would show icons only. */
 .app .talk-seg button span { display: block; }
 .talk-seg { flex: none; }
-.talk-foot { font-size: var(--fs-meta); color: var(--t3); padding: 16px 10px 4px; }
+
+/* ---- Version and updates: the last row of Settings --------------------------------------------- */
+/* "Vela <version>" and one action slot. Every state of the slot draws [glyph][label] at the same
+   place: the quiet button (check), the status (checking, up to date), the secondary button
+   (update ready). A sheet narrower than WIDE gives the slot its own line under the name. */
+.talk-version { margin-top: 8px; }
+.talk-status { display: inline-flex; align-items: center; gap: 10px; min-height: var(--hit); padding: 0 12px; font-size: var(--fs-body); font-weight: 500; color: var(--t2); white-space: nowrap; }
+.talk-status i { width: 20px; height: 20px; flex: none; --stroke: 1.9; }
+/* The labels are fixed words that always fit: never an ellipsis. */
+.talk-version .talk-act { max-width: none; flex: none; }
+.talk-row.talk-version .btn.quiet, .talk-version .talk-status { margin-right: -12px; }
+@container (max-width: 500px) {
+  .talk-version { grid-template-columns: auto minmax(0, 1fr); row-gap: 0; }
+  .talk-version > .talk-act { grid-column: 1 / -1; justify-self: start; }
+  .talk-row.talk-version > .btn.quiet, .talk-version > .talk-status { margin: 0; }
+}
 
 .talk-pad { display: grid; gap: 12px; padding: 4px 16px 16px; align-content: start; min-height: 0; overflow-y: auto; }
 .talk-note { font-size: var(--fs-sub); color: var(--t2); line-height: 1.4; padding: 0 4px; overflow-wrap: anywhere; }

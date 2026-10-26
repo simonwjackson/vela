@@ -10,7 +10,10 @@
  *   load in a dead zone already has the type;
  * - `/wake/*`: cache first in its own cache, WAKE_CACHE, filled when the wake word first loads
  *   (about 18 MB; the names are not hashed, so a change to public/wake bumps WAKE_CACHE);
- * - `/sw.js` is never cached, so worker updates are always seen.
+ * - `/sw.js` is never cached, so worker updates are always seen;
+ * - the web app manifest and the icons (`/manifest.webmanifest`, `/icons/*`, `/icon.svg`,
+ *   `/favicon.*`, `/apple-touch-icon.png`) are never handled: their names are not hashed, so the
+ *   browser always gets the host's copy and an installed Vela picks up a new name or icon.
  * A network answer that takes longer than `networkTimeoutMs` counts as no signal.
  *
  * Listening audio (stream-fetch.ts) needs the Service origins from `/config.json`. When the
@@ -22,6 +25,7 @@ import type { OfflineAudio } from "./offline-cache";
 import { rangeResponse } from "./range";
 import { type ListeningOrigins, handleListeningFetch, listeningRequestKind, offlineCopy } from "./stream-fetch";
 
+/** The boot-error reset (reset.ts) deletes every cache whose name starts with "vela-shell-". */
 export const SHELL_CACHE = "vela-shell-v1";
 /** Bump when anything in public/wake changes; the worker deletes the older wake caches. */
 export const WAKE_CACHE = "vela-wake-v1";
