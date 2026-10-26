@@ -40,7 +40,9 @@
 .app .oui-card > .list { padding: 0; margin: 0 -10px; flex: none; overflow: visible; }
 .app .oui-card .plan-note { grid-template-columns: 20px minmax(0, 1fr); padding: 0; }
 .app .oui-card .plan-note i { margin-top: 1px; }
-.oui-facts { row-gap: 4px; }
+.oui-facts { row-gap: 4px; min-width: 0; }
+/* A fact is a readout: one line, then an ellipsis (it yields before any control does). */
+.oui-facts span { max-width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* A Notice or Facts under the answer: the answer column's text, not a card. */
 .oui-a > .plan-note, .oui-stack > .plan-note { grid-template-columns: 20px minmax(0, 1fr); padding: 0; }
 @container frame (max-height: 420px) { .oui-card { gap: 8px; } }

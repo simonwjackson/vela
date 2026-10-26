@@ -21,6 +21,7 @@ memory  ─┘        │
 | `core/format.ts`, `core/icons.ts` | Text rules (short road, clean title, durations) and the icon set |
 | `styles/` | Tokens, Daylight contrast, components (`system.css`) and each area's parts |
 | `dev/` | Fakes of every contract interface, fixtures, and the 68 scenarios for `dev.html` |
+| `openui/` | Dev-only spike: Signal as an OpenUI language for the co-driver (`openui.html`, see its README) |
 
 ## Look at any state
 

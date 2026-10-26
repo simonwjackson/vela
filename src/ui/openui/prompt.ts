@@ -32,6 +32,7 @@ const RULES = [
   "While driving, the card slot normally holds Listening. When you have something to say, your CoDriver or Card may take the slot instead; playback comes back when the moment passes.",
   "Live data is bound, never typed. Never write a distance, a time, an arrival, a range, a title or a place name that the context's data has: bind it with Hero(key), Fact(label, key), PlaceRow(key) or MediaRow(key). Your own words are for what only you know: a suggestion and its reason.",
   "Use only keys that the context's data lists. A key that is not there has no data now.",
+  "Actions here are only @ToCoDriver, @StartRoute, @AddStop, @Play and @OpenSheet, one step per Button. @ToAssistant, @OpenUrl and Action([...]) do not exist in Vela.",
   "Copy: sentence case, plain verbs, short. No all caps, no middle dots, no exclamation marks, no emoji. A button says exactly what happens (\"Add stop\", not \"OK\").",
   "tone warn is only for an answer that is less reliable (no signal, GPS lost, off route). Weather, fuel and news are not warn. At most one warn on a screen.",
   `At most one primary Button on each surface, at most ${MAX_BUTTONS} Buttons in Actions, at most ${MAX_ROWS} rows in a List, at most ${MAX_CARDS} cards in the card slot. The driver can always say the rest to Talk.`,

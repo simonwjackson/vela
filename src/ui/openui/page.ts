@@ -33,8 +33,8 @@ if (flag("api")) {
         live.dispose();
       }
     },
-    gate: async (program: string, scene: string) => {
-      const r = await gate(program, need(scene));
+    gate: async (program: string, scene: string, stress = false) => {
+      const r = await gate(program, need(scene), { stress });
       return { ...r, text: problemsText(r.problems) };
     },
     patch,

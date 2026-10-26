@@ -1,0 +1,310 @@
+[
+  {
+    "id": "novel-c",
+    "scene": "fuel",
+    "context": {
+      "situation": "Fuel is low: the range is shorter than the distance left. The co-driver suggests the 2 fuel stations ahead.",
+      "data": {
+        "nav.next": "400 m Larch Avenue",
+        "trip.left": "52 min",
+        "trip.distance": "54 km",
+        "trip.eta": "2:17 PM",
+        "next.road": "Larch Avenue",
+        "next.distance": "400 m",
+        "car.range": "38 km",
+        "playback.title": "Low Tide Hours",
+        "playback.left": "5 min",
+        "dest.name": "Northgate",
+        "clock": "1:25 PM",
+        "playback": {
+          "source": "music",
+          "title": "Low Tide Hours",
+          "by": "Paper Lanterns",
+          "transport": "playing"
+        },
+        "suggest.0": {
+          "name": "Harbour Fuel",
+          "address": "1150 Larch Avenue, North Harbour",
+          "ahead": "4.2 km",
+          "detour": "1 min"
+        },
+        "suggest.1": {
+          "name": "Route 9 Services",
+          "address": "Route 9, Fernley",
+          "ahead": "21 km",
+          "detour": "3 min"
+        },
+        "dest": {
+          "name": "Northgate",
+          "address": "Westmarch County",
+          "ahead": "54 km"
+        },
+        "route": "guiding"
+      },
+      "root": "Screen"
+    },
+    "attempts": [
+      {
+        "model": "claude-opus-5-5",
+        "ms": 7044,
+        "usage": {
+          "prompt_tokens": 6673,
+          "completion_tokens": 695,
+          "total_tokens": 7368,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cached_creation_tokens": 6671,
+            "cache_write_tokens": 6671
+          }
+        },
+        "program": "root = Screen(stage)\nstage = Stage(answer, fuel, trip)\nanswer = Hero(\"nav.next\")\nfuel = Card([fuelFacts, stations], \"Fuel is low\")\nfuelFacts = Facts([rangeFact, leftFact])\nrangeFact = Fact(\"Range\", \"car.range\")\nleftFact = Fact(\"To go\", \"trip.distance\")\nstations = List([station0, station1])\nstation0 = PlaceRow(\"suggest.0\", @AddStop(\"suggest.0\"))\nstation1 = PlaceRow(\"suggest.1\", @AddStop(\"suggest.1\"))\ntrip = TripRow()\n",
+        "ok": true,
+        "problems": []
+      }
+    ]
+  },
+  {
+    "id": "novel-d",
+    "scene": "parked",
+    "context": {
+      "situation": "Parked at the destination after a 3-hour drive. Show a trip summary and what to do next.",
+      "data": {
+        "playback.title": "Ferries, tolls and the long way round",
+        "playback.left": "27 min",
+        "trip.driven": "312 km",
+        "trip.time": "3 h 4 min",
+        "trip.avg": "102 km/h",
+        "trip.stops": "1 stop",
+        "dest.name": "Port Ellery",
+        "clock": "1:25 PM",
+        "playback": {
+          "source": "podcasts",
+          "title": "Ferries, tolls and the long way round",
+          "by": "The Long Weekend Show",
+          "transport": "paused"
+        },
+        "suggest.0": {
+          "name": "Ferry Café",
+          "address": "2 Quay Street, Port Ellery",
+          "ahead": "200 m"
+        },
+        "suggest.1": {
+          "name": "Port Ellery Fuel",
+          "address": "Harbour Ring Road, Port Ellery",
+          "ahead": "1.4 km"
+        },
+        "dest": {
+          "name": "Port Ellery",
+          "address": "Harbour Ring Road, Port Ellery"
+        },
+        "media.next": {
+          "source": "podcasts",
+          "title": "Field notes: the quiet county roads",
+          "by": "Field Notes",
+          "length": "1 h 10 min"
+        },
+        "route": "arrived"
+      },
+      "root": "Screen"
+    },
+    "attempts": [
+      {
+        "model": "claude-opus-5-5",
+        "ms": 9183,
+        "usage": {
+          "prompt_tokens": 6687,
+          "completion_tokens": 699,
+          "total_tokens": 7386,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cached_creation_tokens": 6685,
+            "cache_write_tokens": 6685
+          }
+        },
+        "program": "root = Screen(stage, chip)\nchip = Chip(\"Arrived\", \"flag\")\nstage = Stage(answer, nearby, shelf)\nanswer = Stack([driven, summary])\ndriven = Hero(\"trip.driven\", \"driven this trip\")\nsummary = Facts([timeFact, avgFact, stopsFact])\ntimeFact = Fact(\"Time\", \"trip.time\")\navgFact = Fact(\"Average\", \"trip.avg\")\nstopsFact = Fact(\"Stops\", \"trip.stops\")\nnearby = Card([places], \"Near you\")\nplaces = List([cafe, fuel])\ncafe = PlaceRow(\"suggest.0\", @StartRoute(\"suggest.0\"))\nfuel = PlaceRow(\"suggest.1\", @StartRoute(\"suggest.1\"))\nshelf = Shelf()\n",
+        "ok": true,
+        "problems": []
+      }
+    ]
+  },
+  {
+    "id": "novel-b",
+    "scene": "episode",
+    "context": {
+      "situation": "A podcast episode ends 4 minutes before arrival. The co-driver recommends the next episode.",
+      "data": {
+        "nav.next": "400 m Larch Avenue",
+        "trip.left": "22 min",
+        "trip.distance": "21 km",
+        "trip.eta": "1:47 PM",
+        "next.road": "Larch Avenue",
+        "next.distance": "400 m",
+        "playback.title": "Ferries, tolls and the long way round",
+        "playback.left": "18 min",
+        "dest.name": "Northgate",
+        "clock": "1:25 PM",
+        "playback": {
+          "source": "podcasts",
+          "title": "Ferries, tolls and the long way round",
+          "by": "The Long Weekend Show",
+          "transport": "playing"
+        },
+        "dest": {
+          "name": "Northgate",
+          "address": "Westmarch County",
+          "ahead": "21 km"
+        },
+        "media.next": {
+          "source": "podcasts",
+          "title": "Why every bridge looks different",
+          "by": "The Long Weekend Show",
+          "length": "1 h 14 min"
+        },
+        "route": "guiding"
+      },
+      "root": "Screen"
+    },
+    "attempts": [
+      {
+        "model": "claude-opus-5-5",
+        "ms": 8496,
+        "usage": {
+          "prompt_tokens": 6593,
+          "completion_tokens": 753,
+          "total_tokens": 7346,
+          "prompt_tokens_details": {
+            "cached_tokens": 6591,
+            "cached_creation_tokens": 0,
+            "cache_write_tokens": 0
+          }
+        },
+        "program": "root = Screen(stage)\nstage = Stage(answer, card, trip)\nanswer = Hero(\"nav.next\")\ncard = Card([note, list, buttons], \"Up next\")\nnote = Text(\"This episode ends just before we arrive. The next one picks up where this leaves off.\")\nlist = List([episode])\nepisode = MediaRow(\"media.next\", @ToCoDriver(\"Play the next episode when this one ends\"))\nbuttons = Actions([queueBtn, skipBtn])\nqueueBtn = Button(\"Play after this\", @ToCoDriver(\"Play the next episode when this one ends\"), \"primary\")\nskipBtn = Button(\"Not now\", @ToCoDriver(\"Don't queue the next episode\"), \"quiet\")\ntrip = TripRow()\n",
+        "ok": false,
+        "problems": [
+          {
+            "code": "tall",
+            "message": "the Up next part is 318 px tall on a 374 px screen (at folded landscape 711×374)",
+            "postures": [
+              "fl"
+            ]
+          },
+          {
+            "code": "overlap",
+            "message": ".top and the Up next part overlap by 28 px: the screen is 374 px tall and holds less. Drop a part or use a shorter one (at folded landscape 711×374)",
+            "postures": [
+              "fl"
+            ]
+          },
+          {
+            "code": "overlap",
+            "message": "the Up next part and the Trip part overlap by 44 px: the screen is 374 px tall and holds less. Drop a part or use a shorter one (at folded landscape 711×374)",
+            "postures": [
+              "fl"
+            ]
+          },
+          {
+            "code": "talk",
+            "message": "the Up next part covers Talk (at folded landscape 711×374)",
+            "postures": [
+              "fl"
+            ]
+          }
+        ]
+      },
+      {
+        "model": "claude-opus-5-5",
+        "ms": 8986,
+        "usage": {
+          "prompt_tokens": 7067,
+          "completion_tokens": 745,
+          "total_tokens": 7812,
+          "prompt_tokens_details": {
+            "cached_tokens": 6590,
+            "cached_creation_tokens": 473,
+            "cache_write_tokens": 473
+          }
+        },
+        "program": "root = Screen(stage)\nstage = Stage(answer, codriver, trip)\nanswer = Hero(\"nav.next\")\ncodriver = CoDriver(\"This episode ends just before we arrive. Play the next one after it?\", buttons)\nbuttons = Actions([queueBtn, skipBtn])\nqueueBtn = Button(\"Play after this\", @ToCoDriver(\"Play the next episode when this one ends\"), \"primary\")\nskipBtn = Button(\"Not now\", @ToCoDriver(\"Don't queue the next episode\"), \"quiet\")\ntrip = TripRow()\n",
+        "ok": true,
+        "problems": []
+      }
+    ]
+  },
+  {
+    "id": "novel-a",
+    "scene": "rain",
+    "context": {
+      "situation": "Rain is starting. 140 km are left on a long leg of the trip, and an audiobook is playing.",
+      "data": {
+        "nav.next": "64 km Route 14",
+        "trip.left": "1 h 35 min",
+        "trip.distance": "140 km",
+        "trip.eta": "3:00 PM",
+        "next.road": "Route 14",
+        "next.distance": "64 km",
+        "weather.now": "Light rain",
+        "weather.next": "Heavier from 2:05 PM",
+        "playback.title": "The Salt Road",
+        "playback.left": "15 min",
+        "dest.name": "Port Ellery",
+        "clock": "1:25 PM",
+        "playback": {
+          "source": "books",
+          "title": "The Salt Road",
+          "by": "M. A. Fenwick",
+          "transport": "playing"
+        },
+        "dest": {
+          "name": "Port Ellery",
+          "ahead": "140 km"
+        },
+        "route": "guiding"
+      },
+      "root": "Screen"
+    },
+    "attempts": [
+      {
+        "model": "claude-opus-5-5",
+        "ms": 9624,
+        "usage": {
+          "prompt_tokens": 6578,
+          "completion_tokens": 373,
+          "total_tokens": 6951,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cached_creation_tokens": 6576,
+            "cache_write_tokens": 6576
+          }
+        },
+        "program": "root = Screen(stage)\nstage = Stage(answer, card, trip)\nanswer = Stack([hero, weather])\nhero = Hero(\"trip.left\")\nweather = Facts([rainNow, rainNext])\nrainNow = Fact(\"Now\", \"weather.now\")\nrainNext = Fact(\"Later\", \"weather.next\")\ncard = Listening()\ntrip = TripRow()\n",
+        "ok": true,
+        "problems": []
+      }
+    ]
+  },
+  {
+    "id": "novel-a-after",
+    "scene": "rain",
+    "event": "The driver tapped away your rain note: they have seen it. Give that part of the screen back to what plays, and change nothing else.",
+    "attempts": [
+      {
+        "model": "claude-opus-5-5",
+        "ms": 4629,
+        "usage": {
+          "prompt_tokens": 7115,
+          "completion_tokens": 279,
+          "total_tokens": 7394,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cached_creation_tokens": 7113,
+            "cache_write_tokens": 7113
+          }
+        },
+        "patch": "answer = Hero(\"trip.left\")\n",
+        "merged": "root = Screen(stage)\nstage = Stage(answer, card, trip)\nanswer = Hero(\"trip.left\")\ncard = Listening()\ntrip = TripRow()\n",
+        "ok": true,
+        "problems": []
+      }
+    ]
+  }
+]

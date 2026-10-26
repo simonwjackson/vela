@@ -8,10 +8,13 @@ Status: early. The engines are being built. The visual design is not decided, so
 
 ```sh
 nix develop
-npm install
+OPENUI_TELEMETRY_DISABLED=1 DO_NOT_TRACK=1 npm install
 just verify   # typecheck, lint, tests
 just dev
 ```
+
+Set `OPENUI_TELEMETRY_DISABLED=1 DO_NOT_TRACK=1` for every install: the dev-only OpenUI spike
+(`src/ui/openui/`) depends on `@openuidev/lang-core`, whose postinstall sends telemetry otherwise.
 
 The app reads `/config.json` at startup. It holds the origins of the services you run. See `src/contract/config.ts`.
 

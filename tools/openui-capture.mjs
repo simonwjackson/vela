@@ -91,7 +91,7 @@ try {
         tiles.push(t);
       }
       const sheet = join(out, `${id}-${variant}.png`);
-      magick(...tiles, "-background", "#000", "-gravity", "north", "-splice", "12x0", "+append", sheet);
+      magick(...tiles, "-background", "#000", "-splice", "12x0", "-gravity", "north", "+append", sheet);
       report.push(sheet);
     }
   }
@@ -100,7 +100,7 @@ try {
   const verdicts = await page.evaluate(`(async () => {
     const { PROGRAMS } = await import("/src/ui/openui/programs.ts");
     const out = [];
-    for (const p of PROGRAMS) { const r = await window.oui.gate(p.program, p.scene); out.push({ id: p.id, ok: r.ok, problems: r.problems }); }
+    for (const p of PROGRAMS) { const r = await window.oui.gate(p.program, p.scene, ${stress}); out.push({ id: p.id, ok: r.ok, problems: r.problems }); }
     return out;
   })()`);
   writeFileSync(join(out, `gate-${variant}.json`), `${JSON.stringify(verdicts, null, 2)}\n`);

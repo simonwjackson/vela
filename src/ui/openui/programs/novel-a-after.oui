@@ -1,0 +1,5 @@
+root = Screen(stage)
+stage = Stage(answer, card, trip)
+answer = Hero("trip.left")
+card = Listening()
+trip = TripRow()

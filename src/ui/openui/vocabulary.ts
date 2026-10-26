@@ -168,7 +168,7 @@ const inCard = z.union([Text.ref, Facts.ref, Notice.ref, List.ref, Actions.ref])
 export const Hero = defineComponent({
   name: "Hero",
   description:
-    'The answer: one large live figure, the memorable thing on the screen, with a road line under it. "nav.next" is the next turn exactly as Vela answers it while guiding (distance and road, "Now", or the time left on a long leg, or "Arrived"). The other keys show their value large, with line as the words under it (for example Hero("car.range", "to empty")); line is ignored for "nav.next".',
+    'The answer: one large live figure, the memorable thing on the screen, with a road line under it. "nav.next" is the next turn exactly as Vela answers it while guiding (distance and road, "Now", or the time left on a long leg, or "Arrived"). "trip.left" is the time left with the next turn under it (the long-leg answer). The other keys show their value large, with line as the words under it (for example Hero("car.range", "to empty")). Under "nav.next" and "trip.left" Vela writes the line itself: leave line out.',
   props: z.object({ value: z.enum(HERO_KEYS), line: z.string().optional() }),
   component: null,
 });

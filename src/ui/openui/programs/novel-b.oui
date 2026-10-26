@@ -1,0 +1,8 @@
+root = Screen(stage)
+stage = Stage(answer, codriver, trip)
+answer = Hero("nav.next")
+codriver = CoDriver("This episode ends just before we arrive. Play the next one after it?", buttons)
+buttons = Actions([queueBtn, skipBtn])
+queueBtn = Button("Play after this", @ToCoDriver("Play the next episode when this one ends"), "primary")
+skipBtn = Button("Not now", @ToCoDriver("Don't queue the next episode"), "quiet")
+trip = TripRow()

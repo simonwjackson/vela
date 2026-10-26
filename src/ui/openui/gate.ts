@@ -168,6 +168,22 @@ function signalRules(root: ElementNode, at: (id: string | undefined) => { line?:
   }
   if ((counts.get("Hero") ?? 0) > 1) out.push({ code: "one-hero", message: `The screen has ${counts.get("Hero")} Heroes. It has exactly one memorable figure; show the others as Facts.` });
   for (const n of SINGLE) if ((counts.get(n) ?? 0) > 1) out.push({ code: "once", message: `${n} shows ${counts.get(n)} times. It is bound to one thing: use it once.` });
+  // Nothing repeats the answer or the trip row (brief: "No chip repeats the answer").
+  const heroes: string[] = [];
+  const facts: string[] = [];
+  walk(stage, undefined, (el) => {
+    if (el.typeName === "Hero") heroes.push(String(el.props.value));
+    if (el.typeName === "Fact") facts.push(String(el.props.value));
+    if (el.typeName === "Hero" && (el.props.value === "nav.next" || el.props.value === "trip.left") && el.props.line !== undefined) {
+      out.push({ ...at(el.statementId), code: "ignored", message: `Hero("${el.props.value}") writes its own line (the road or the next turn); "${el.props.line}" would not show. Leave line out.` });
+    }
+  });
+  const turnShown = heroes.some((k) => k === "nav.next" || k === "trip.left");
+  for (const f of facts) {
+    if (turnShown && (f === "nav.next" || f === "next.road" || f === "next.distance")) out.push({ code: "repeats", message: `Fact "${f}" repeats the next turn the Hero already shows. Remove it.` });
+    if ((counts.get("TripRow") ?? 0) > 0 && (f === "trip.left" || f === "trip.eta") && !heroes.includes(f)) out.push({ code: "repeats", message: `Fact "${f}" repeats the trip row. Remove it.` });
+    if (heroes.includes(f)) out.push({ code: "repeats", message: `Fact "${f}" repeats the Hero. Remove it.` });
+  }
   if (warns > 1) out.push({ code: "warn", message: "More than one part has tone warn. Warn is for one less reliable answer at a time." });
   if (live) {
     const st = live.f.nav.state.kind;
@@ -221,7 +237,7 @@ export async function gate(program: string, scene: Scene, opts: GateOptions = {}
   try {
     const problems = checkProgram(program, live);
     const canRender = opts.render ?? (typeof document !== "undefined" && typeof document.fonts !== "undefined");
-    const fatal = problems.some((p) => !["copy", "too-long", "typed-value", "unused", "warn", "one-primary"].includes(p.code));
+    const fatal = problems.some((p) => !["copy", "too-long", "typed-value", "unused", "warn", "one-primary", "ignored", "repeats"].includes(p.code));
     if (canRender && !fatal) problems.push(...(await renderProbe(program, live)));
     return { ok: problems.length === 0, problems };
   } finally {
@@ -294,6 +310,11 @@ export function probe(app: HTMLElement): [code: string, message: string][] {
   const sections = [...app.children] as HTMLElement[];
 
   if (overflows(app)) {
+    // How tall each composed part is, so the model can size its answer: "the card is 290 px".
+    for (const sec of sections.filter((c) => c.matches(".card, .codriver, .listen, .where-card, .oui-c, .oui-a, .answer"))) {
+      const r = sec.getBoundingClientRect();
+      if (r.height > fr.height * 0.45) out.push(["tall", `${nameOf(sec)} is ${Math.round(r.height)} px tall on a ${Math.round(fr.height)} px screen`]);
+    }
     const flow = sections.filter((c) => getComputedStyle(c).position !== "absolute" && !c.matches(".sheet"));
     let named = false;
     for (let i = 0; i < flow.length; i++)
@@ -301,7 +322,8 @@ export function probe(app: HTMLElement): [code: string, message: string][] {
         const a = (flow[i] as HTMLElement).getBoundingClientRect();
         const b = (flow[j] as HTMLElement).getBoundingClientRect();
         if (a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1) {
-          out.push(["overlap", `${nameOf(flow[i] as HTMLElement)} and ${nameOf(flow[j] as HTMLElement)} overlap: the screen holds less. Drop a part or use a shorter one`]);
+          const px = Math.round(Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+          out.push(["overlap", `${nameOf(flow[i] as HTMLElement)} and ${nameOf(flow[j] as HTMLElement)} overlap by ${px} px: the screen is ${Math.round(fr.height)} px tall and holds less. Drop a part or use a shorter one`]);
           named = true;
         }
       }
@@ -332,11 +354,12 @@ export function probe(app: HTMLElement): [code: string, message: string][] {
     const sec = el.closest(".app > *");
     const sr = sec?.getBoundingClientRect();
     const short = text.slice(0, 32);
+    // The nearest scroll region: rows scrolled out of its view are reachable, not overflowing.
+    let sc: HTMLElement | null = el;
+    while (sc && sc !== app && !/auto|scroll/.test(getComputedStyle(sc).overflowY)) sc = sc.parentElement;
+    const scr = sc && sc !== app ? sc.getBoundingClientRect() : null;
     for (const x of cut && inClip ? [inClip.getBoundingClientRect()] : rects) {
-      if (scrolls && inClip) {
-        const c = inClip.getBoundingClientRect();
-        if (x.bottom > c.bottom + 1 || x.top < c.top - 1) continue;
-      }
+      if (scr && (x.bottom > scr.bottom + 1 || x.top < scr.top - 1)) continue;
       if (x.left < fr.left - 0.5 || x.right > fr.right + 0.5 || x.top < fr.top - 0.5 || x.bottom > fr.bottom + 0.5) {
         out.push(["offscreen", `"${short}" leaves the screen`]);
         break;
