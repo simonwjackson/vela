@@ -1,0 +1,46 @@
+/* The OpenUI spike: the layout primitives and the generic Card. Dev-only.
+   Tokens only, from ../styles/system.css: no new sizes, colours or radii. The parts inside
+   (answer, cards, rows, buttons, facts, notes) are Signal's own classes. */
+
+/* A Stage with no secondary: the answer takes the whole width; the base row stays. */
+/* biome-ignore lint/correctness/noInvalidGridAreas: one column per row is consistent; the rule miscounts single-name rows */
+.app[data-solo][data-flow="row"] { grid-template-columns: minmax(0, 1fr); grid-template-areas: "top" "answer" "trip"; }
+/* biome-ignore lint/correctness/noInvalidGridAreas: as above */
+.app[data-solo][data-flow="col"] { grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: "top" "answer" "trip"; }
+
+/* A composed part in a slot takes the slot's area and its centre line, as .answer and .listen do. */
+.oui-a { grid-area: answer; align-self: center; min-width: 0; }
+.app[data-flow="col"] .oui-a { align-self: end; }
+.oui-c { grid-area: listen; align-self: center; min-width: 0; }
+
+/* Stack: parts top to bottom. Between answer parts the frame's own gap (.75 m); between cards .5 m. */
+.oui-stack { display: flex; flex-direction: column; gap: calc(var(--m) * .5); min-width: 0; }
+.oui-a.oui-stack { gap: calc(var(--m) * .5); }
+.app[data-flow] .oui-stack > * { align-self: stretch; margin: 0; }
+.app[data-flow] .oui-stack > .answer { padding-bottom: 0; }
+
+/* Split: two parts side by side when the slot holds two 260 px columns, else stacked.
+   The threshold is a guess (two Where to rows' width), like plan.ts's. */
+.oui-split { container-type: inline-size; min-width: 0; }
+.oui-split-in { display: grid; grid-template-columns: minmax(0, 1fr); gap: calc(var(--m) * .5); align-items: center; }
+@container (min-width: 552px) { .oui-split-in { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.app[data-flow] .oui-split-in > * { align-self: stretch; margin: 0; }
+
+/* Row: small parts side by side, wrapping. */
+.oui-row { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; min-width: 0; }
+
+/* Card: the listening card's surface (system .card) with a title and Signal's parts inside. */
+.oui-card { gap: 12px; }
+.oui-card-title { font-size: var(--fs-body); font-weight: var(--w1); letter-spacing: -.012em; line-height: 1.3; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.oui-text { font-size: var(--fs-body); font-weight: var(--w2); line-height: 1.35; color: var(--t1); overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+.oui-text.muted { font-size: var(--fs-sub); color: var(--t2); }
+/* Rows line up with the card's text: the row's own padding moves into the card's. */
+.app .oui-card > .list { padding: 0; margin: 0 -10px; flex: none; overflow: visible; }
+.app .oui-card .plan-note { grid-template-columns: 20px minmax(0, 1fr); padding: 0; }
+.app .oui-card .plan-note i { margin-top: 1px; }
+.oui-facts { row-gap: 4px; }
+/* A Notice or Facts under the answer: the answer column's text, not a card. */
+.oui-a > .plan-note, .oui-stack > .plan-note { grid-template-columns: 20px minmax(0, 1fr); padding: 0; }
+@container frame (max-height: 420px) { .oui-card { gap: 8px; } }

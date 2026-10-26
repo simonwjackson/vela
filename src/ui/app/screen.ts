@@ -735,7 +735,7 @@ function driveBase(input: ScreenInput, talk: TalkView): BaseView {
   };
 }
 
-function whereCard(input: ScreenInput): CardView {
+export function whereCard(input: ScreenInput): CardView {
   // The field and up to 3 places: Saved places first, then one Recent destination.
   const rows = [
     ...input.saved.map((p, index) => ({ icon: placeIcon(p), title: p.name, list: "saved" as const, index })),

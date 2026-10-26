@@ -683,3 +683,6 @@ function library(sv: Extract<SheetView, { kind: "library" }>): HTMLElement {
     body: [f, list],
   });
 }
+
+/** The parts one by one, for the dev-only OpenUI spike (src/ui/openui), which composes them itself. */
+export { answer as renderAnswer, base as renderBase, card as renderCard, listenCard as renderListenCard, renderSheet, stage as renderStage, top as renderTop };

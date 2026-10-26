@@ -1,0 +1,5 @@
+root = Screen(stage)
+stage = Stage(answer, route, trip)
+answer = Hero("nav.next")
+route = Sheet("route")
+trip = TripRow()

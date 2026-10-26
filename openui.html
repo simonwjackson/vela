@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#08090a">
+<meta name="color-scheme" content="dark">
+<title>Vela dev: Signal as an OpenUI language</title>
+<link rel="icon" href="data:,">
+<link rel="preload" href="/fonts/Inter.ttf" as="font" type="font/ttf" crossorigin>
+<style>
+  /* The spike's own chrome only; every frame renders with the app's stylesheet. */
+  body.oui-dev { overflow: auto; color: #8a8f98; font: 14px/1.5 Inter, sans-serif; }
+  body.oui-dev #app { height: auto; min-height: 100%; display: flex; flex-direction: column; }
+  .oui-bar { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; padding: 12px 16px; border-bottom: 1px solid rgb(255 255 255 / .07); }
+  .oui-bar label { display: inline-flex; gap: 8px; align-items: center; min-height: 44px; }
+  .oui-bar select, .oui-patch button { font: inherit; color: #f7f8f8; background: #0f1011; border: 1px solid rgb(255 255 255 / .14); border-radius: 8px; min-height: 44px; padding: 0 10px; }
+  .oui-bar :focus-visible, .oui-patch button:focus-visible { outline: 2px solid #7c80ff; outline-offset: 2px; }
+  .oui-main { display: flex; flex-wrap: wrap; gap: 16px; padding: 16px; align-items: flex-start; }
+  .oui-stage { flex: 1 1 480px; min-width: 0; position: relative; }
+  .oui-framebox { transform-origin: 0 0; box-shadow: 0 0 0 1px rgb(255 255 255 / .1); }
+  .oui-side { flex: 1 1 320px; max-width: 64ch; min-width: 0; display: grid; gap: 12px; }
+  .oui-code { margin: 0; padding: 12px; background: #0f1011; border-radius: 8px; color: #f7f8f8; font: 13px/1.55 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .oui-verdict { white-space: pre-wrap; color: #c3c7ce; }
+  .oui-verdict[data-bad] { color: #e5a54b; }
+  .oui-patch:empty { display: none; }
+  .oui-patch p { margin: 0 0 8px; }
+  .oui-patch button { margin-top: 8px; cursor: pointer; }
+  .oui-patch button:disabled { color: #5c6068; cursor: default; }
+  body.oui-bare #app { height: 100%; }
+</style>
+</head>
+<body>
+<!-- Dev only: Signal as an OpenUI language (src/ui/openui). Not a build input, so not in the production bundle. -->
+<div id="app"></div>
+<script type="module" src="/src/ui/openui/page.ts"></script>
+</body>
+</html>

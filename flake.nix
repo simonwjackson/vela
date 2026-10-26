@@ -21,7 +21,10 @@
           pname = "vela";
           version = "0-${velaVersion}";
           src = self;
-          npmDepsHash = "sha256-4NL0vQm+2v5baGp9jAjB/phMuQrCcKhEPDPtfypL/d0=";
+          npmDepsHash = "sha256-iyJAfaTUwjXDGRhDTVl7YOufwqmaLF/wDcK13MznLC0=";
+          # The dev-only OpenUI spike pulls in @openuidev/lang-core, whose postinstall sends telemetry.
+          env.OPENUI_TELEMETRY_DISABLED = "1";
+          env.DO_NOT_TRACK = "1";
           env.VELA_VERSION = velaVersion;
           installPhase = "cp -r dist $out";
         };

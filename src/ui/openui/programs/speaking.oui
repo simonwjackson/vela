@@ -1,0 +1,5 @@
+root = Screen(stage)
+stage = Stage(answer, codriver, trip)
+answer = Hero("nav.next")
+codriver = CoDriver()
+trip = TripRow()

@@ -1,0 +1,5 @@
+root = Screen(stage)
+stage = Stage(playing, where, shelf)
+playing = NowPlaying()
+where = WhereTo()
+shelf = Shelf()
