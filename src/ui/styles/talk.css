@@ -1,0 +1,86 @@
+/* talk area: local styles. Owned by the talk area designer.
+   Scope every rule under .app or a talk- class prefix, and build from the tokens in ../system.css.
+   No new sizes or colours: 16 / 14 / 13 and --road, t1 / t2 / t3, the accent only through the shared Talk states. */
+
+/* ---- Co-driver card additions --------------------------------------------------------------- */
+/* The card measures itself: a narrow card (fl, 256) gives its buttons the full width. */
+.talk-card { container: talkcard / inline-size; }
+.talk-card .codriver-text { line-height: 1.35; }
+/* The label is a readout (a co-driver id can be 40 characters): one line, then an ellipsis. */
+.talk-card .codriver-label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* A quiet button has no fill, so it needs less side padding to read as a target; the hit stays 56 tall. */
+.talk-card .btn.quiet { padding: 0 12px; }
+.talk-card .btn-row { flex-wrap: nowrap; }
+.talk-card .btn { flex: none; }
+/* The live transcript: 3 lines, newest words kept (talk.js trims the start after layout). */
+.talk-card .talk-keep { display: block; overflow: visible; -webkit-line-clamp: none; }
+.talk-sub { grid-column: 2; font-size: var(--fs-sub); color: var(--t2); line-height: 1.4;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; overflow-wrap: anywhere; }
+.talk-progress { grid-column: 2; padding-top: 8px; }
+.talk-shimmer { grid-column: 2; width: min(160px, 100%); margin-top: 10px; }
+@container talkcard (max-width: 300px) {
+  .talk-card .btn-row { grid-column: 1 / -1; }
+}
+
+/* ---- Base row with Talk alone (first-run) ---------------------------------------------------- */
+.talk-base { grid-area: trip; display: flex; justify-content: flex-end; padding-top: calc(var(--m) * .75); min-width: 0; }
+
+/* ---- First run: the setup card --------------------------------------------------------------- */
+.talk-setup { grid-area: listen; gap: 6px; padding: 14px 12px 8px; container: setup / inline-size; }
+.talk-setup-head { font-size: var(--fs-body); font-weight: var(--w1); letter-spacing: -.012em; padding: 0 6px; }
+.talk-setup .rows { gap: 0; }
+.talk-setup-row { padding: 2px 6px; gap: 12px; }
+.talk-setup-row .lead-icon { width: 28px; }
+.talk-setup-row .btn { height: var(--hit); padding: 0 14px; }
+.talk-setup-row { gap: 10px; }
+.talk-setup .talk-ok { color: var(--t2); }
+.talk-dl { grid-template-columns: auto minmax(0, 1fr); }
+.talk-dl .bar { margin-top: 8px; }
+/* A narrow card drops the row glyphs before any word goes (space yields first). */
+@container setup (max-width: 280px) {
+  .talk-setup-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 2px 2px 2px 6px; }
+  .talk-dl { grid-template-columns: minmax(0, 1fr); }
+  .talk-setup-row .lead-icon { display: none; }
+}
+
+/* ---- Settings and its pages ------------------------------------------------------------------ */
+.talk-row .switch { margin-right: 4px; }
+.talk-row .btn.quiet { margin-right: -8px; max-width: none; padding: 0 12px; }
+/* A sheet list that scrolls fades its last 32 px, so a row that ends exactly at the edge still
+   shows that more exist. */
+.talk-pad.talk-scroll { -webkit-mask-image: linear-gradient(#000 calc(100% - 32px), transparent); mask-image: linear-gradient(#000 calc(100% - 32px), transparent); }
+.talk-segrow { display: grid; gap: 12px; padding: 14px 10px 12px; min-width: 0; }
+.talk-seghead { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: center; }
+.talk-seghead .lead-icon { width: 44px; height: 44px; display: grid; place-items: center; color: var(--t2); margin: -6px 0; }
+.talk-seghead .lead-icon svg { width: 20px; height: 20px; }
+.talk-segrow .text b, .talk-block b { display: block; font-size: var(--fs-body); font-weight: var(--w1); }
+.talk-segrow .text span { display: block; font-size: var(--fs-sub); color: var(--t2); margin-top: 2px; }
+/* These choices are words that fit at every sheet width (the shortest sheet is 314), and they
+   have no glyphs: keep the labels where the shared rule would show icons only. */
+.app .talk-seg button span { display: block; }
+.talk-seg { flex: none; }
+.talk-foot { font-size: var(--fs-meta); color: var(--t3); padding: 16px 10px 4px; }
+
+.talk-pad { display: grid; gap: 12px; padding: 4px 16px 16px; align-content: start; min-height: 0; overflow-y: auto; }
+.talk-note { font-size: var(--fs-sub); color: var(--t2); line-height: 1.4; padding: 0 4px; overflow-wrap: anywhere; }
+.talk-note + .talk-note { margin-top: -6px; }
+.talk-block { display: grid; gap: 4px; padding: 4px 4px 0; min-width: 0; }
+.talk-block b { overflow-wrap: anywhere; }
+.talk-block > span { font-size: var(--fs-sub); color: var(--t2); overflow-wrap: anywhere; }
+.talk-block > .meta { font-size: var(--fs-meta); color: var(--t3); margin-top: 4px; }
+.talk-err { display: flex; gap: 10px; align-items: flex-start; font-size: var(--fs-sub); color: var(--t2); line-height: 1.4; padding: 0 4px; overflow-wrap: anywhere; }
+.talk-err i { width: 16px; height: 16px; flex: none; margin-top: 2px; --stroke: 2; }
+.talk-err span { min-width: 0; }
+
+/* ---- Boot error: A only -------------------------------------------------------------------- */
+.talk-boot { grid-row: 1 / -1; max-width: 36em; }
+.talk-boot .quiet-sub { color: var(--t2); line-height: 1.4; }
+
+/* ---- Short frames: space yields first (fl is 374 tall) --------------------------------------- */
+@container frame (max-height: 420px) {
+  .talk-base { padding-top: 12px; }
+  .talk-setup { gap: 2px; padding: 10px 10px 4px; }
+  .talk-card .codriver-text { line-height: 1.3; }
+  .talk-progress { padding-top: 4px; }
+  .talk-card .btn-row { margin-top: 6px; }
+}

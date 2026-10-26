@@ -6,6 +6,10 @@
  * - navigations: network first, falling back to the last good page (stored under `/`);
  * - `/config.json`: network first, falling back to the last good copy;
  * - `/assets/*`: cache first, filled on first use (the files are content-hashed);
+ * - `/fonts/*`: cache first; PRECACHED (Inter) is stored when the worker installs, so the first
+ *   load in a dead zone already has the type;
+ * - `/wake/*`: cache first in its own cache, WAKE_CACHE, filled when the wake word first loads
+ *   (about 18 MB; the names are not hashed, so a change to public/wake bumps WAKE_CACHE);
  * - `/sw.js` is never cached, so worker updates are always seen.
  * A network answer that takes longer than `networkTimeoutMs` counts as no signal.
  *
@@ -19,15 +23,41 @@ import { rangeResponse } from "./range";
 import { type ListeningOrigins, handleListeningFetch, listeningRequestKind, offlineCopy } from "./stream-fetch";
 
 export const SHELL_CACHE = "vela-shell-v1";
+/** Bump when anything in public/wake changes; the worker deletes the older wake caches. */
+export const WAKE_CACHE = "vela-wake-v1";
+export const WAKE_CACHE_PREFIX = "vela-wake-";
 export const DEFAULT_NETWORK_TIMEOUT_MS = 4000;
 
-export type ShellRequestKind = "navigation" | "config" | "asset";
+/** Same-origin files stored when the worker installs. */
+export const PRECACHED: readonly string[] = ["/fonts/Inter.ttf"];
+
+/**
+ * Store PRECACHED in the shell cache. A file that cannot be fetched is skipped (it is then cached
+ * on first use), so a failed download never stops the worker from installing.
+ */
+export async function precacheShell(deps: Pick<WorkerFetchDeps, "scopeOrigin" | "shell" | "fetch">): Promise<void> {
+  await Promise.all(
+    PRECACHED.map(async (path) => {
+      const url = `${deps.scopeOrigin}${path}`;
+      try {
+        const response = await deps.fetch(new Request(url, { cache: "reload" }));
+        if (response.status === 200) await deps.shell.put(url, response);
+      } catch {
+        // No signal while installing: filled on first use instead.
+      }
+    }),
+  );
+}
+
+export type ShellRequestKind = "navigation" | "config" | "asset" | "wake";
 
 export interface WorkerFetchDeps {
   /** The worker's own origin. */
   readonly scopeOrigin: string;
   /** Cache for the app shell. Same shape as the audio cache. */
   readonly shell: OfflineAudio;
+  /** Cache for the wake-word engine and model (public/wake). */
+  readonly wake: OfflineAudio;
   readonly offline: OfflineAudio;
   readonly credentials: PyxisCredentialStore;
   readonly fetch: typeof fetch;
@@ -43,7 +73,8 @@ export function shellRequestKind(request: RequestShape, scopeOrigin: string): Sh
   if (url.pathname === "/sw.js") return undefined;
   if (request.mode === "navigate") return "navigation";
   if (url.pathname === "/config.json") return "config";
-  if (url.pathname.startsWith("/assets/")) return "asset";
+  if (url.pathname.startsWith("/assets/") || url.pathname.startsWith("/fonts/")) return "asset";
+  if (url.pathname.startsWith("/wake/")) return "wake";
   return undefined;
 }
 
@@ -91,12 +122,12 @@ async function networkFirst(
   }
 }
 
-async function cacheFirst(request: Request, deps: WorkerFetchDeps): Promise<Response> {
-  const cached = await deps.shell.match(request.url).catch(() => undefined);
+async function cacheFirst(request: Request, deps: WorkerFetchDeps, cache: OfflineAudio = deps.shell): Promise<Response> {
+  const cached = await cache.match(request.url).catch(() => undefined);
   if (cached !== undefined) return cached;
   try {
     const response = await deps.fetch(request);
-    if (response.status === 200) await deps.shell.put(request.url, response.clone()).catch(() => undefined);
+    if (response.status === 200) await cache.put(request.url, response.clone()).catch(() => undefined);
     return response;
   } catch {
     return noSignal("This part of Vela");
@@ -114,6 +145,8 @@ export function handleShellFetch(request: Request, kind: ShellRequestKind, deps:
       return networkFirst(request, `${deps.scopeOrigin}/config.json`, deps, "Vela's configuration");
     case "asset":
       return cacheFirst(request, deps);
+    case "wake":
+      return cacheFirst(request, deps, deps.wake);
   }
 }
 

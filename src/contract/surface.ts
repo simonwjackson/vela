@@ -1,7 +1,8 @@
 /**
  * SurfaceLink: how the personal assistant uses Vela as a surface (ADR 0007).
  *
- * Vela opens a WebSocket to `${origins.assistant}/surface` and announces itself. The assistant,
+ * Vela opens a WebSocket to `${origins.assistant}${assistantSurfacePath}` (VelaConfig; default
+ * `/surface`) and announces itself. The assistant,
  * speaking as the chosen Co-driver, calls car tools; Vela executes them and replies. Vela also
  * pushes context so the assistant can answer trip questions without a round trip.
  * JSON text frames only. Every message has `type`.

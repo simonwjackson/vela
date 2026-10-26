@@ -12,6 +12,9 @@
  * - Turn sounds: Music ducks and restores after the sound. Podcasts and Books pause and then
  *   resume TALK_RESUME_BACK_SEC earlier. A driver command during the yield cancels the
  *   automatic resume: the driver's intent wins.
+ * - Co-driver speech (`holdForTalk`) yields the same way, for as long as the hold lasts. Holds
+ *   nest; the last release restores. A Turn sound during a hold never restores early, and a
+ *   Podcast or Book paused by a Turn sound when a hold begins resumes only after the hold.
  * - While something plays, the active adapter reports its position every `syncEveryMs`, and
  *   again whenever it pauses or loses the Now playing slot.
  */
@@ -84,6 +87,10 @@ export function createListening(options: ListeningOptions): ListeningEngine {
   let duckDeadline = 0;
   let duckTimer: ReturnType<typeof setTimeout> | undefined;
   let talkYield: TalkYield | undefined;
+  /** Co-driver speech holds; while any is open, Music stays ducked. */
+  let holds = 0;
+  /** A Podcast or Book paused for the Co-driver, resumed when the last hold ends. */
+  let talkHold: { readonly source: SourceId; readonly itemId: string } | undefined;
 
   const publish = () => changes.emit({ nowPlaying, shelf });
 
@@ -103,12 +110,24 @@ export function createListening(options: ListeningOptions): ListeningEngine {
     if (duckTimer !== undefined) clearTimeout(duckTimer);
     duckTimer = undefined;
     duckDeadline = 0;
-    sources.music.output.setDuck(1);
+    sources.music.output.setDuck(holds > 0 ? duckFactor : 1);
   };
 
   const cancelTalkYield = () => {
     if (talkYield?.timer !== undefined) clearTimeout(talkYield.timer);
     talkYield = undefined;
+    talkHold = undefined;
+  };
+
+  /** Seek back TALK_RESUME_BACK_SEC and play, if the same item still holds the slot. */
+  const resumeBack = (source: SourceId, itemId: string, why: string) => {
+    if (active !== source || nowPlaying?.item.id !== itemId) return;
+    const adapter = sources[source].adapter;
+    const position = latest[source]?.positionSec ?? nowPlaying.positionSec;
+    adapter.seek(Math.max(0, position - TALK_RESUME_BACK_SEC));
+    adapter.play().catch((error: unknown) => {
+      console.warn(`Vela could not resume after ${why}`, error);
+    });
   };
 
   const leave = (source: SourceId) => {
@@ -234,14 +253,43 @@ export function createListening(options: ListeningOptions): ListeningEngine {
     pending.timer = setTimeout(() => {
       if (talkYield !== pending) return;
       talkYield = undefined;
-      if (active !== pending.source || nowPlaying?.item.id !== pending.itemId) return;
-      const adapter = sources[pending.source].adapter;
-      const position = latest[pending.source]?.positionSec ?? nowPlaying.positionSec;
-      adapter.seek(Math.max(0, position - TALK_RESUME_BACK_SEC));
-      adapter.play().catch((error: unknown) => {
-        console.warn("Vela could not resume after a Turn sound", error);
-      });
+      resumeBack(pending.source, pending.itemId, "a Turn sound");
     }, pending.deadline - now);
+  }
+
+  function beginHold(): void {
+    sources.music.output.setDuck(duckFactor);
+    if (active === undefined || turnSoundYield(active) === "duck") return;
+    if (talkYield !== undefined) {
+      // Paused by a Turn sound: the hold takes over, so it does not resume mid-answer.
+      if (talkYield.timer !== undefined) clearTimeout(talkYield.timer);
+      talkHold = { source: talkYield.source, itemId: talkYield.itemId };
+      talkYield = undefined;
+      return;
+    }
+    if (nowPlaying?.transport !== "playing") return;
+    talkHold = { source: active, itemId: nowPlaying.item.id };
+    sources[active].adapter.pause();
+  }
+
+  function endHold(): void {
+    if (duckTimer === undefined) sources.music.output.setDuck(1);
+    const held = talkHold;
+    talkHold = undefined;
+    if (held !== undefined) resumeBack(held.source, held.itemId, "the Co-driver spoke");
+  }
+
+  function holdForTalk(): () => void {
+    if (disposed) return () => undefined;
+    holds += 1;
+    if (holds === 1) beginHold();
+    let released = false;
+    return () => {
+      if (released || disposed) return;
+      released = true;
+      holds -= 1;
+      if (holds === 0) endHold();
+    };
   }
 
   const ready = (async () => {
@@ -281,6 +329,7 @@ export function createListening(options: ListeningOptions): ListeningEngine {
     send,
     search: (source, query) => sources[source].adapter.search(query),
     yieldForTurnSound,
+    holdForTalk,
     subscribe(listener) {
       return changes.subscribe(listener);
     },
@@ -288,6 +337,7 @@ export function createListening(options: ListeningOptions): ListeningEngine {
       if (disposed) return;
       disposed = true;
       clearInterval(syncTimer);
+      holds = 0;
       restoreDuck();
       cancelTalkYield();
       for (const unsubscribe of unsubscribers) unsubscribe();

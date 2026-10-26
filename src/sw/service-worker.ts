@@ -5,24 +5,33 @@
  */
 import { createCacheCredentialStore } from "../sources/pyxis-credentials";
 import { createCacheOfflineAudio } from "./offline-cache";
-import { SHELL_CACHE, createWorkerFetch } from "./worker-fetch";
+import { SHELL_CACHE, WAKE_CACHE, WAKE_CACHE_PREFIX, createWorkerFetch, precacheShell } from "./worker-fetch";
 
 const worker = self as unknown as ServiceWorkerGlobalScope;
 
+const shell = createCacheOfflineAudio(caches, SHELL_CACHE);
+const fetchNetwork: typeof fetch = (input, init) => fetch(input, init);
+
 const handle = createWorkerFetch({
   scopeOrigin: worker.location.origin,
-  shell: createCacheOfflineAudio(caches, SHELL_CACHE),
+  shell,
+  wake: createCacheOfflineAudio(caches, WAKE_CACHE),
   offline: createCacheOfflineAudio(caches),
   credentials: createCacheCredentialStore(caches),
-  fetch: (input, init) => fetch(input, init),
+  fetch: fetchNetwork,
 });
 
 worker.addEventListener("install", (event) => {
-  event.waitUntil(worker.skipWaiting());
+  event.waitUntil(
+    precacheShell({ scopeOrigin: worker.location.origin, shell, fetch: fetchNetwork }).then(() => worker.skipWaiting()),
+  );
 });
 
 worker.addEventListener("activate", (event) => {
-  event.waitUntil(Promise.all([worker.clients.claim(), handle.loadOrigins()]));
+  const oldWake = caches
+    .keys()
+    .then((names) => Promise.all(names.filter((n) => n.startsWith(WAKE_CACHE_PREFIX) && n !== WAKE_CACHE).map((n) => caches.delete(n))));
+  event.waitUntil(Promise.all([worker.clients.claim(), handle.loadOrigins(), oldWake]));
 });
 
 worker.addEventListener("fetch", (event) => {

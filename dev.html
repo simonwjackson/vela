@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-visual">
+<meta name="theme-color" content="#08090a">
+<meta name="color-scheme" content="dark">
+<title>Vela dev: Signal states</title>
+<link rel="icon" href="data:,">
+<link rel="preload" href="/fonts/Inter.ttf" as="font" type="font/ttf" crossorigin>
+<style>
+  /* The state index only; every state renders with the app's own stylesheet. */
+  body.dev-index { overflow: auto; color: #8a8f98; font: 14px/1.6 Inter, sans-serif; }
+  body.dev-index #app { height: auto; padding: 24px; }
+  body.dev-index a { color: #f7f8f8; }
+</style>
+</head>
+<body>
+<!-- Dev only: renders any Signal state from fakes. ?state=<id>&stress=1&daylight=1. Not in the production build. -->
+<div id="app"></div>
+<script type="module" src="/src/ui/dev/main.ts"></script>
+</body>
+</html>

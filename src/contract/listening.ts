@@ -71,6 +71,11 @@ export interface Listening {
   search(source: SourceId, query: string): Promise<readonly Item[]>;
   /** Called by the nav side around every Turn sound. Returns when listening has yielded. */
   yieldForTurnSound(durationMs: number): Promise<void>;
+  /**
+   * Called while the Co-driver speaks. Music ducks; Podcasts and Books pause. The returned
+   * function releases the hold: Music restores, Podcasts and Books resume TALK_RESUME_BACK_SEC back.
+   */
+  holdForTalk(): () => void;
   subscribe(listener: (state: { nowPlaying: NowPlaying | undefined; shelf: Shelf }) => void): () => void;
 }
 

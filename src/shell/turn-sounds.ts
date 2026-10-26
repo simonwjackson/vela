@@ -29,11 +29,7 @@ const browserScheduler: Scheduler = {
  */
 export function bridgeTurnSounds(nav: NavEngine, listening: Listening, earcons: Earcons, leadMs: number, scheduler: Scheduler = browserScheduler): () => void {
   const pending = new Set<unknown>();
-  const fire = (event: TurnSoundEvent): void => {
-    const durationMs = earcons.durationMs[event.sound];
-    void listening.yieldForTurnSound(durationMs);
-    void earcons.play(event.sound);
-  };
+  const fire = (event: TurnSoundEvent): void => playTurnSound(listening, earcons, event.sound);
   const off = nav.onTurnSound((event) => {
     // Start `leadMs` before the moment it should be heard, to cover the Bluetooth delay.
     const wait = Math.max(0, event.heardAt - leadMs - scheduler.now());
@@ -46,6 +42,12 @@ export function bridgeTurnSounds(nav: NavEngine, listening: Listening, earcons: 
     for (const handle of pending) scheduler.clearTimeout(handle);
     pending.clear();
   };
+}
+
+/** Play one Turn sound now: Listening yields for its duration while the earcon plays. */
+export function playTurnSound(listening: Listening, earcons: Earcons, sound: TurnSound): void {
+  void listening.yieldForTurnSound(earcons.durationMs[sound]);
+  void earcons.play(sound);
 }
 
 /** Placeholder earcons made with Web Audio tones. Replaced by designed sounds later. */

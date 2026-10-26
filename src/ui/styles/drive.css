@@ -1,0 +1,38 @@
+/* drive area: local styles. Owned by the drive area designer.
+   Scope every rule under .app or a drive- class prefix, and build from the tokens in ../system.css.
+   No new sizes or colours: --road, 16, t1/t2/t3 and the shared stroke weights only. */
+
+/* ---- `then`: a second Stop close behind the next one ---------------------------------------
+   One line at --road, all t2 (it is the second answer, not the first): "Then ↰ Route 9".
+   The road ellipsizes on its one line; the full name is in the Route sheet. */
+.drive-then { display: flex; align-items: center; gap: 10px; min-width: 0; margin-top: calc(var(--u) * 3);
+  font-size: var(--road); font-weight: var(--w2); letter-spacing: -.022em; line-height: 1.15; color: var(--t2); }
+.drive-then > span { flex: none; }
+.drive-then i { width: 1.05em; height: 1.05em; flex: none; --stroke: 2.1; }
+.drive-then > .drive-then-road { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---- GPS lost: the last answer stays, in t2 (it may no longer be true) ----------------------- */
+.drive-stale :is(.arrow, .big, .road) { color: var(--t2); }
+
+/* ---- Stop on the way next: the trip row's trailing figure is the stop and its time ------------
+   The name ellipsizes; the time never does. The bar keeps the shared stack rule (own line under 120). */
+.trip.drive-via { grid-template-columns: max-content minmax(0, 1fr) minmax(0, max-content) auto; }
+.trip.drive-via[data-stack] { grid-template-columns: max-content minmax(0, 1fr) auto; }
+.trip.drive-via .eta { display: flex; gap: .3em; min-width: 0; justify-self: end; max-width: 100%; }
+/* The name is a readout: it stops at 15em so the bar keeps its line where the row allows. */
+.trip.drive-via .drive-via-name { min-width: 0; max-width: 15em; overflow: hidden; text-overflow: ellipsis; }
+.trip.drive-via .eta b { flex: none; }
+
+/* ---- Arrived: Done at the trailing end of the Destination line ---------------------------------
+   The place keeps its 2-line clamp and gives way; Done keeps its 56 px target and never wraps. */
+.drive-arrived-line { display: flex; align-items: center; gap: 16px; min-width: 0; margin-top: calc(var(--u) * 3); }
+.drive-arrived-line > .road { flex: 1 1 auto; min-width: 0; margin-top: 0; }
+.drive-arrived-line > .btn { flex: none; }
+/* Row flow: the answer column ends beside the card, so a Done at its far end would read as part of
+   the card. There Done follows the name; in column flow it ends the line, on the card's edge. */
+.app[data-flow="row"] .drive-arrived-line > .road { flex: 0 1 auto; }
+
+/* `then` in column flow: the answer has a third line, and the 2-line road pushed it to the top row
+   at fp (21 px clear), which would make the listening card change form. The road cuts to one line
+   here (cut text before shrinking it); the full name is in the Route sheet. */
+.app[data-flow="col"] .answer:has(.drive-then) .road { -webkit-line-clamp: 1; }

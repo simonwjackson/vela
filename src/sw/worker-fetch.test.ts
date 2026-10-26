@@ -1,6 +1,6 @@
 import { createMemoryCredentialStore } from "../sources/pyxis-credentials";
 import { createMemoryOfflineAudio } from "./offline-cache";
-import { createWorkerFetch, shellRequestKind } from "./worker-fetch";
+import { createWorkerFetch, precacheShell, shellRequestKind } from "./worker-fetch";
 
 const scope = "https://vela.test";
 const config = {
@@ -37,16 +37,18 @@ function setup(routes: Record<string, () => Response> = {}) {
     ...routes,
   });
   const shell = createMemoryOfflineAudio();
+  const wake = createMemoryOfflineAudio();
   const offline = createMemoryOfflineAudio();
   const deps = {
     scopeOrigin: scope,
     shell,
+    wake,
     offline,
     credentials: createMemoryCredentialStore({ token: "device-token-test", deviceId: "dev-car", accountId: "default" }),
     fetch: net.fetcher,
     networkTimeoutMs: 50,
   };
-  return { net, shell, offline, deps, handle: createWorkerFetch(deps) };
+  return { net, shell, wake, offline, deps, handle: createWorkerFetch(deps) };
 }
 
 const navigation = (url = `${scope}/`) => {
@@ -117,6 +119,35 @@ describe("app shell offline", () => {
     const asked = net.state.asked.length;
     expect(await (await handle(new Request(url)))?.text()).toBe("console.log(1)");
     expect(net.state.asked.length).toBe(asked);
+  });
+
+  test("the wake-word engine and model are cache first in their own cache, for offline use", async () => {
+    const { handle, net, wake, shell } = setup({
+      "/wake/sherpa/sherpa-onnx-wasm-kws-main.wasm": () => new Response(new Uint8Array([0, 97, 115, 109])),
+    });
+    const url = `${scope}/wake/sherpa/sherpa-onnx-wasm-kws-main.wasm`;
+    expect(shellRequestKind({ url, method: "GET", mode: "cors" }, scope)).toBe("wake");
+    expect((await (await handle(new Request(url)))?.arrayBuffer())?.byteLength).toBe(4);
+    expect(await wake.keys()).toEqual([url]);
+    expect(await shell.keys()).toEqual([]);
+    net.state.online = false;
+    expect((await handle(new Request(url)))?.status).toBe(200);
+  });
+
+  test("Inter is stored when the worker installs, and served from the cache without signal", async () => {
+    const { handle, net, shell, deps } = setup({ "/fonts/Inter.ttf": () => new Response(new Uint8Array([1, 2, 3])) });
+    await precacheShell(deps);
+    expect(await shell.keys()).toEqual([`${scope}/fonts/Inter.ttf`]);
+    net.state.online = false;
+    const font = await handle(new Request(`${scope}/fonts/Inter.ttf`));
+    expect((await font?.arrayBuffer())?.byteLength).toBe(3);
+  });
+
+  test("installing without signal skips the precache instead of failing", async () => {
+    const { net, shell, deps } = setup();
+    net.state.online = false;
+    await expect(precacheShell(deps)).resolves.toBeUndefined();
+    expect(await shell.keys()).toEqual([]);
   });
 
   test("a missing asset is not cached", async () => {

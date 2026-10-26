@@ -1,5 +1,5 @@
 /** Pure guidance arithmetic: from a position along the Route to every number the driving view shows. */
-import type { Guidance, Stop } from "../contract";
+import type { Guidance, Route, Stop } from "../contract";
 import { type PlannedRoute, secondsAt } from "./valhalla";
 
 /** A Stop counts as reached this many metres before its point, to absorb snapping near corners. */
@@ -26,6 +26,19 @@ export function nextActionableStop(stops: readonly Stop[], along: number, after?
   return undefined;
 }
 
+/**
+ * The arrival Stops of the stops on the way, in order. Every leg but the last ends at one, so the
+ * first `route.via.length` arrival Stops belong to `route.via`.
+ */
+function viaArrivals(route: Route): Stop[] {
+  return route.stops.filter((s) => s.maneuver === "arrive").slice(0, route.via.length);
+}
+
+/** How many of the Route's stops on the way the car has reached at `along`. */
+export function passedViaCount(route: Route, along: number): number {
+  return viaArrivals(route).filter((s) => s.routeMeters - STOP_PASS_METERS < along).length;
+}
+
 export function computeGuidance(input: GuidanceInput): Guidance {
   const { planned, now } = input;
   const { route } = planned;
@@ -41,6 +54,16 @@ export function computeGuidance(input: GuidanceInput): Guidance {
   const secToNext = Math.max(0, secondsAt(planned.timeline, nextStop.routeMeters) - nowSec);
   const secLeft = Math.max(0, route.totalSec - nowSec);
   const metersLeft = Math.max(0, route.totalMeters - along);
+  const viaIndex = passedViaCount(route, along);
+  const viaStop = viaArrivals(route)[viaIndex];
+  const viaPlace = route.via[viaIndex];
+  const nextVia =
+    viaStop && viaPlace
+      ? (() => {
+          const secTo = Math.max(0, secondsAt(planned.timeline, viaStop.routeMeters) - nowSec);
+          return { place: viaPlace, metersTo: Math.max(0, viaStop.routeMeters - along), secTo, arriveAt: now + secTo * 1000 };
+        })()
+      : undefined;
 
   return {
     route,
@@ -55,6 +78,7 @@ export function computeGuidance(input: GuidanceInput): Guidance {
     arriveAt: now + secLeft * 1000,
     offRoute: input.offRoute,
     offline: input.offline,
+    ...(nextVia ? { nextVia } : {}),
   };
 }
 

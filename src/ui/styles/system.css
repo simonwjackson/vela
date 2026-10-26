@@ -1,0 +1,409 @@
+/* Vela Signal: the design system. Ported from the approved Signal mockup (signal3/system.css).
+   Linear-grounded: near-black, three grey tiers, hairline edges, one accent, Inter.
+
+   The frame: every state is four parts, T (top row), A (answer), C (card slot), B (base row).
+   A and C share one centre line. B carries Talk at its trailing end on every screen.
+   Layout is a function of the frame's size: app/mount.ts sets the plan(w, h) custom properties
+   and data-flow on .app, and view/fit.ts makes the measured adaptations after each render.
+
+   Components and their class names
+   ---------------------------------------------------------------------------------------
+   Root          .vela(data-daylight) > .app[data-flow="row"|"col"]
+   Top row       .top > .chip-slot + .top-end(.readout(.warn), .clock, .icon-btn)
+   Chip / toast  .chip  .chip.warn  .chip.toast
+   Answer        .answer  .hero  .arrow  .big(.step)  .unit  .road(.secondary)  .line2  .quiet  .shimmer
+   Buttons       .btn  .btn.primary  .btn.quiet  .btn-row  .icon-btn  .keys  .keys .play
+   Talk button   .talk-btn[aria-pressed]  .talk-btn.denied
+   Progress      .bar > i  .bar.quiet  .trip.dim  .bar .tick
+   Cards in C    .listen, .where-card, .codriver, .listen.shelf, .talk-setup
+   Stage         .stage (Now playing large, in the answer slot only)
+   Shelf         .listen.shelf, .shelf.large, .shelf-row > .shelf-item
+   Trip row      .trip(.dim)[data-stack] > .left + .bar + .eta + .talk-btn
+   List rows     .list[data-scroll] > .list-head + .row
+   Sheet         .sheet > .sheet-top + .field + .list
+   Segmented     .seg > button[aria-pressed]
+   Field         .field > i + input.field-input
+   Switch        .switch[aria-checked]
+   --------------------------------------------------------------------------------------- */
+
+@font-face { font-family: "Inter"; font-weight: 100 900; font-display: swap; src: url("/fonts/Inter.ttf") format("truetype"); }
+
+/* The Light: the background wash takes the cover's colour. Registered so it can cross-fade. */
+@property --light { syntax: "<color>"; inherits: true; initial-value: #7c80ff; }
+@property --light-alpha { syntax: "<percentage>"; inherits: true; initial-value: 5%; }
+
+/* ---- Tokens ------------------------------------------------------------------------- */
+:root {
+  /* Colour: one ground, two raised surfaces, a hairline, three text tiers, one accent. */
+  --bg: #08090a;
+  --surface: #0f1011;     /* card, chip, field, secondary button, Talk */
+  --surface2: #141517;    /* sheet, co-driver card, pressed segment */
+  --edge: rgb(255 255 255 / .07);
+  --t1: #f7f8f8;          /* answers, titles */
+  --t2: #8a8f98;          /* by-lines, units, clock, quiet states */
+  --t3: #5c6068;          /* meta, section labels, dimmed bar. Never for something the driver needs. */
+  --accent: #7c80ff;      /* three uses only: trip progress, Talk while the mic is open, focus ring */
+  --on-accent: #0b0c1a;
+  --warn: #e5a54b;        /* less reliable answer, or over the limit. Text and glyph only. */
+  --track: rgb(255 255 255 / .09);
+  --hover: rgb(255 255 255 / .03);
+  --current: rgb(255 255 255 / .04);
+
+  /* Weight pair: w1 for answers and titles, w2 for supporting text. */
+  --w1: 560; --w2: 500;
+
+  /* Type: five sizes. Two fluid (--hero, --road, from plan(w, h)) and three fixed. --trip is --road. */
+  --fs-body: 16px;  /* card and row titles, buttons, field text, eta, clock, speed, co-driver text */
+  --fs-sub: 14px;   /* by-lines, row subs, chips, segment labels */
+  --fs-meta: 13px;  /* meta, section labels (sentence case, t3) */
+
+  /* Space: steps of 4, 8, 12, 16, 24, and --m (the posture margin from plan). */
+  --u: 4px;
+  --m: 32px;
+  --radius-art: 8px;
+  --radius-m: 12px;
+  --radius-l: 16px;
+  --radius-xl: 20px;
+  --hit: 56px;        /* every target, at every posture */
+
+  --ease: cubic-bezier(.2, 0, 0, 1);
+  --t-press: 150ms;
+  --t-swap: 200ms;
+  --t-sheet: 240ms;
+  --t-light: 1200ms;
+
+  --shadow-card: 0 1px 0 rgb(255 255 255 / .04) inset, 0 24px 48px -24px rgb(0 0 0 / .8);
+  --shadow-sheet: inset 0 0 0 1px var(--edge), 0 30px 80px rgb(0 0 0 / .7);
+  color-scheme: dark;
+}
+
+/* Daylight contrast: the same look, brighter tiers and heavier weights, for direct sun.
+   The Light keeps its alpha. */
+.vela[data-daylight] {
+  --bg: #0c0d0f; --surface: #17181b; --surface2: #1d1f22; --edge: rgb(255 255 255 / .14);
+  --t1: #ffffff; --t2: #c3c7ce; --t3: #9a9fa7; --accent: #a4a7ff; --track: rgb(255 255 255 / .2);
+  --hover: rgb(255 255 255 / .05); --current: rgb(255 255 255 / .07);
+  --w1: 640; --w2: 560;
+}
+
+/* ---- Base ---------------------------------------------------------------------------- */
+html, body { height: 100%; margin: 0; overflow: hidden; background: #08090a; }
+body > #app { height: 100%; }
+.vela { position: relative; height: 100%; overflow: hidden; color: var(--t1);
+  --light: var(--accent); --light-alpha: 5%;
+  background: radial-gradient(90% 70% at 15% 0%, color-mix(in srgb, var(--light) var(--light-alpha), transparent), transparent 60%), var(--bg);
+  font-family: "Inter", sans-serif; font-feature-settings: "cv11", "ss03"; -webkit-font-smoothing: antialiased;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  transition: --light var(--t-light) var(--ease), --light-alpha var(--t-light) var(--ease); }
+:where(.vela) *, :where(.vela) *::before, :where(.vela) *::after { box-sizing: border-box; margin: 0; }
+:where(.vela) button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; text-align: inherit; }
+:where(.vela) svg { display: block; width: 100%; height: 100%; }
+:where(.vela) [data-action] { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.num { font-variant-numeric: tabular-nums; }
+.vela :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+:where(.vela) button:disabled, :where(.vela) [aria-disabled="true"] { color: var(--t3); cursor: default; }
+@media (prefers-reduced-motion: reduce) { :root { --t-light: 150ms; --t-sheet: 150ms; --t-swap: 150ms; } }
+
+/* ---- Shell --------------------------------------------------------------------------- */
+.app { position: relative; height: 100%; margin: 0; display: grid; padding: var(--m); column-gap: var(--m); container: frame / size; }
+.app[data-flow="row"] { grid-template-columns: minmax(0, 1fr) minmax(0, var(--side)); grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas: "top top" "answer listen" "trip trip"; }
+/* biome-ignore lint/correctness/noInvalidGridAreas: one column per row is consistent; the rule miscounts single-name rows */
+.app[data-flow="col"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto auto; grid-template-areas: "top" "answer" "listen" "trip"; row-gap: calc(var(--m) * .75); }
+
+/* ---- Top row: chip slot leading; readouts, clock and settings trailing -------------------- */
+.top { grid-area: top; display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 28px; min-width: 0; }
+.chip-slot { display: flex; min-width: 0; }
+.app[data-flow="row"]:has(> .sheet) .chip-slot { max-width: calc(100% - var(--side) - var(--m) * 2.4 - 12px); }
+.top-end { display: flex; align-items: center; gap: 16px; flex: none; }
+.clock { font-size: var(--fs-body); font-weight: 500; color: var(--t2); white-space: nowrap; }
+.readout { font-size: var(--fs-body); font-weight: 500; color: var(--t2); white-space: nowrap; }
+.readout.warn { color: var(--warn); font-weight: var(--w1); }
+/* The settings button draws 20 in a 56 hit; the negative margin keeps the row 28 tall. */
+.top .icon-btn { margin: -14px -18px -14px -6px; color: var(--t3); }
+
+/* ---- Chip and toast ------------------------------------------------------------------ */
+.chip { display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 12px 0 10px; border-radius: 99px; font-size: var(--fs-sub); font-weight: 500;
+  color: var(--t2); background: var(--surface); box-shadow: inset 0 0 0 1px var(--edge); min-width: 0; max-width: 100%; }
+.chip > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chip i { width: 15px; height: 15px; --stroke: 2; flex: none; }
+.chip[data-short] { padding: 0 7px; }
+.chip[data-short] > span { display: none; }
+.chip.warn { color: var(--warn); }
+/* A toast is a chip in the same slot: one at a time, the whole chip is the target. */
+button.chip { position: relative; }
+button.chip::after { content: ""; position: absolute; top: -14px; bottom: -14px; left: 50%; width: max(100%, var(--hit)); transform: translateX(-50%); }
+@media (prefers-reduced-motion: no-preference) { .chip.toast { animation: swap-in var(--t-swap) var(--ease); } }
+@keyframes swap-in { from { opacity: 0; } }
+
+/* ---- Answer: on the composition's centre line ------------------------------------------ */
+.answer { grid-area: answer; align-self: center; min-width: 0; padding-bottom: calc(var(--m) * .25); }
+/* Column flow: answer and card are one group, --m apart; the free space goes above the answer. */
+.app[data-flow="col"] .answer, .app[data-flow="col"] .stage, .app[data-flow="col"] .shelf.large { align-self: end; }
+.hero { display: flex; align-items: center; gap: calc(var(--hero) * .16); }
+.arrow { width: calc(var(--hero) * .62); height: calc(var(--hero) * .62); --stroke: 2.1; flex: none; }
+.big { font-size: var(--hero); font-weight: var(--w1); line-height: .9; letter-spacing: -.045em; white-space: nowrap; }
+/* The hero never wraps and never ellipsizes: when it overflows, index.html steps it down once. */
+.big.step { font-size: calc(var(--hero) * .85); }
+.big .unit { font-size: .3em; font-weight: var(--w2); color: var(--t2); letter-spacing: -.01em; margin-left: .18em; }
+/* Road line: the short form, at most 2 lines, then an ellipsis. */
+.road { font-size: var(--road); font-weight: var(--w2); letter-spacing: -.022em; line-height: 1.15; margin-top: calc(var(--u) * 3);
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.road.secondary { color: var(--t2); }
+.line2 { display: flex; align-items: center; gap: 10px; font-size: var(--road); font-weight: var(--w2); letter-spacing: -.022em; margin-top: calc(var(--u) * 3); color: var(--t2); }
+.line2 > span { min-width: 0; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.line2 i { width: 1.05em; height: 1.05em; color: var(--t1); --stroke: 2.2; flex: none; }
+.line2 b { color: var(--t1); font-weight: var(--w2); }
+.quiet { font-size: var(--road); font-weight: var(--w2); color: var(--t2); letter-spacing: -.02em; display: flex; align-items: center; gap: 14px; }
+.quiet > span { min-width: 0; overflow-wrap: anywhere; }
+.quiet i { width: 1.1em; height: 1.1em; --stroke: 2; flex: none; }
+.quiet.warn i { color: var(--warn); }
+.quiet-sub { font-size: var(--fs-body); color: var(--t2); margin-top: 8px; overflow-wrap: anywhere; }
+.shimmer { height: 2px; width: min(240px, 60%); margin-top: 18px; border-radius: 2px; background: linear-gradient(90deg, var(--track), var(--t2) 50%, var(--track)) 0 0 / 200% 100%; }
+@media (prefers-reduced-motion: no-preference) { .shimmer { animation: shimmer 1.6s linear infinite; } }
+@media (prefers-reduced-motion: reduce) { .shimmer { background: var(--t3); } }
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+.answer-actions { display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap; }
+
+/* Compact answer: one line at --road, above a col-flow sheet. */
+.app[data-flow="col"]:has(> .sheet) .answer { align-self: start; display: flex; align-items: baseline; gap: 12px; padding-bottom: 0; min-width: 0; }
+.app[data-flow="col"]:has(> .sheet) .hero { gap: 10px; align-self: center; flex: none; }
+.app[data-flow="col"]:has(> .sheet) .arrow { width: calc(var(--road) * 1.05); height: calc(var(--road) * 1.05); }
+.app[data-flow="col"]:has(> .sheet) .big { font-size: var(--road); line-height: 1.15; letter-spacing: -.022em; }
+.app[data-flow="col"]:has(> .sheet) .big .unit { font-size: 1em; margin-left: .2em; }
+.app[data-flow="col"]:has(> .sheet) .road { margin-top: 0; -webkit-line-clamp: 1; min-width: 0; }
+
+/* ---- Buttons: 56 tall. Primary (at most one per surface), secondary, quiet, icon ---------- */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; height: var(--hit); padding: 0 18px 0 14px; border-radius: var(--radius-m);
+  font-size: var(--fs-body); font-weight: 500; background: var(--surface); box-shadow: inset 0 0 0 1px var(--edge); color: var(--t1); max-width: 100%; min-width: 0;
+  transition: background var(--t-press) var(--ease), transform var(--t-press) var(--ease); }
+.btn:not(:has(i)) { padding: 0 18px; }
+/* A short label (Edit, Done) still gets the full 56 hit. */
+.btn { min-width: var(--hit); }
+.btn > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.btn i { width: 20px; height: 20px; color: var(--t2); --stroke: 1.9; flex: none; }
+.btn.primary { background: var(--t1); color: var(--bg); box-shadow: none; font-weight: var(--w1); }
+.btn.primary i { color: inherit; }
+.btn.quiet { background: none; box-shadow: none; color: var(--t2); }
+.btn-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; min-width: 0; }
+.icon-btn { width: var(--hit); height: var(--hit); display: grid; place-items: center; color: var(--t2); flex: none; border-radius: var(--radius-m); }
+.icon-btn svg { width: 20px; height: 20px; }
+@media (hover: hover) {
+  .btn:hover:not(:disabled):not(.primary), .icon-btn:hover:not(:disabled), .keys button:hover:not(:disabled):not(.play) { color: var(--t1); }
+}
+.btn:active:not(:disabled) { background: var(--surface2); }
+.btn.primary:active:not(:disabled) { background: var(--t2); }
+.btn.quiet:active:not(:disabled), .icon-btn:active:not(:disabled), .keys button:active:not(:disabled):not(.play) { background: var(--current); }
+.btn:disabled, .btn:disabled i { color: var(--t3); }
+.btn.primary:disabled { background: var(--surface); color: var(--t3); }
+
+/* Transport keys: skip (24 glyph in a 56 hit), play (56, t1 fill). */
+.keys { display: flex; align-items: center; justify-content: center; gap: 4px; }
+.keys button { width: var(--hit); height: var(--hit); display: grid; place-items: center; color: var(--t2); border-radius: 50%; }
+.keys button svg { width: 24px; height: 24px; }
+.keys .play { background: var(--t1); color: var(--bg); transition: transform var(--t-press) var(--ease); }
+.keys .play svg { width: 22px; height: 22px; }
+.keys .play:active { transform: scale(.96); }
+@media (prefers-reduced-motion: reduce) { .keys .play:active, .talk-btn:active { transform: none; } }
+
+/* ---- Talk button: the trailing end of the base row, on every screen ---------------------- */
+.talk-btn { width: var(--hit); height: var(--hit); flex: none; display: grid; place-items: center; border-radius: 50%; color: var(--t1);
+  background: var(--surface); box-shadow: inset 0 0 0 1px var(--edge); transition: background var(--t-press) var(--ease), transform var(--t-press) var(--ease); }
+.talk-btn svg { width: 24px; height: 24px; --stroke: 2; }
+.talk-btn:active { transform: scale(.96); }
+/* Mic open: accent fill; the ring is the level meter (--level 0..1, driven by the mic). */
+.talk-btn[aria-pressed="true"] { --level: .5; background: var(--accent); color: var(--on-accent);
+  box-shadow: 0 0 0 calc(2px + var(--level) * 6px) color-mix(in srgb, var(--accent) 30%, transparent); }
+.talk-btn.denied { color: var(--t2); }
+
+/* ---- Progress bar: left to right, 2px, the default way to show progress ----------------- */
+.bar { height: 2px; border-radius: 2px; background: var(--track); position: relative; overflow: hidden; }
+.bar i { position: absolute; inset: 0 auto 0 0; border-radius: 2px; background: var(--accent); min-width: 6px; transition: width 1000ms linear; }
+.bar.quiet i { border-radius: 0; background: var(--t2); min-width: 0; }
+.trip.dim .bar i { background: var(--t3); }
+/* Stops on the way: 2 x 8 ticks in t3, centred on the bar. */
+.bar:has(.tick) { overflow: visible; }
+.bar .tick { position: absolute; top: -3px; width: 2px; height: 8px; border-radius: 1px; background: var(--t3); transform: translateX(-1px); }
+
+/* ---- Cards in the card slot (C) ---------------------------------------------------------- */
+.card, .listen, .where-card { grid-area: listen; align-self: center; min-width: 0; background: linear-gradient(rgb(255 255 255 / .025), transparent 40%), var(--surface);
+  border: 1px solid var(--edge); border-radius: var(--radius-l); padding: 18px; display: grid; gap: 16px; box-shadow: var(--shadow-card); }
+@media (prefers-reduced-motion: no-preference) { .listen, .where-card, .codriver { animation: swap-in var(--t-swap) var(--ease); } }
+
+/* Listening card */
+.now { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: center; }
+.text { min-width: 0; }
+.art { width: var(--art); height: var(--art); border-radius: var(--radius-art); object-fit: cover; box-shadow: 0 0 0 1px var(--edge); }
+.title { font-size: var(--fs-body); font-weight: var(--w1); letter-spacing: -.012em; line-height: 1.3; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.by { font-size: var(--fs-sub); color: var(--t2); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.app[data-flow="col"] .listen { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.app[data-flow="col"] .listen > .bar { grid-column: 1 / -1; grid-row: 2; }
+.app[data-flow="col"] .listen .keys { gap: 0; }
+/* Narrow frames (folded portrait): the full form, keys under the bar, as in row flow. When the answer
+   then no longer fits under the top row, index.html sets [data-compact] and the keys go inline again. */
+@container frame (max-width: 560px) {
+  .app[data-flow="col"] .listen:not(.shelf):not([data-compact]) { grid-template-columns: minmax(0, 1fr); }
+  .app[data-flow="col"] .listen:not(.shelf):not([data-compact]) > .bar { grid-row: auto; }
+  .app[data-flow="col"] .listen:not([data-compact]) .keys { gap: 4px; }
+}
+
+/* ---- Stage: Now playing large, in the answer slot only (no route) ------------------------ */
+.stage { grid-area: answer; align-self: center; min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: calc(var(--m) * .75); align-items: center; }
+.stage .art { width: var(--stageart); height: var(--stageart); border-radius: 12px; }
+.stage .title { font-size: var(--road); line-height: 1.2; letter-spacing: -.02em; }
+.stage .by { font-size: var(--fs-sub); margin-top: 6px; }
+.stage .bar { margin: 16px 0 4px; max-width: 420px; }
+.stage .keys { justify-content: flex-start; margin-left: -16px; }
+
+/* ---- Shelf: the last item from each Source, one tap resumes it -------------------------- */
+.app[data-flow="col"] .listen.shelf { grid-template-columns: 1fr; }
+.shelf-head { font-size: var(--fs-meta); font-weight: 500; color: var(--t3); }
+.rows { display: grid; gap: 6px; min-width: 0; }
+/* Large form, in the answer slot. */
+.shelf.large { grid-area: answer; align-self: center; display: grid; gap: 8px; min-width: 0; }
+.shelf.large .row .lead { width: 64px; height: 64px; }
+/* Shelf row, in the base row: three items side by side, then Talk. Narrow: glyph + Source only. */
+.shelf-row { grid-area: trip; display: flex; align-items: center; column-gap: 12px; padding-top: calc(var(--m) * .75); container-type: inline-size; min-width: 0; }
+.shelf-item { flex: 1 1 0; display: flex; align-items: center; gap: 10px; min-height: var(--hit); min-width: 0; padding: 0 8px; margin-left: -8px; border-radius: var(--radius-m); text-align: left; font-size: var(--fs-body); color: var(--t2); }
+.shelf-item i { width: 20px; height: 20px; flex: none; --stroke: 1.9; }
+.shelf-item b { font-weight: var(--w1); flex: none; }
+.shelf-item span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--t2); }
+.shelf-item[aria-current] { color: var(--t1); }
+.shelf-item:active { background: var(--current); }
+.shelf-item:not(:has(span)) { flex: 0 1 auto; margin-right: 12px; }
+.shelf-row > .talk-btn { margin-left: auto; }
+@container (max-width: 720px) { .shelf-item span { display: none; } .shelf-item, .shelf-item:not(:has(span)) { flex: 1 1 0; margin-right: 0; } }
+
+/* ---- Where to card ----------------------------------------------------------------------- */
+.where-card { gap: 6px; padding: 12px; }
+.where-card .rows { gap: 0; }
+.where-card .row { min-height: 60px; padding: 8px 6px; }
+
+/* ---- Co-driver card: takes the card slot while Talk is open ------------------------------ */
+.codriver { grid-area: listen; align-self: center; min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 14px; row-gap: 6px; align-items: center;
+  padding: 18px; border-radius: var(--radius-l); background: var(--surface2); box-shadow: inset 0 0 0 1px var(--edge); }
+.codriver-mark { grid-row: 1 / span 2; align-self: start; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); box-shadow: inset 0 0 0 1px var(--edge); color: var(--t2); }
+.codriver-mark svg { width: 20px; height: 20px; --stroke: 2; }
+.codriver.active .codriver-mark { background: var(--accent); color: var(--on-accent); box-shadow: none; }
+.codriver-label { font-size: var(--fs-sub); color: var(--t2); font-weight: 500; }
+.codriver-text { grid-column: 2; font-size: var(--fs-body); font-weight: var(--w2); line-height: 1.35; color: var(--t1);
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; overflow-wrap: anywhere; }
+.codriver-text.said { color: var(--t2); }
+.codriver .btn-row { grid-column: 2; margin-top: 10px; }
+
+/* ---- List rows ----------------------------------------------------------------------- */
+/* A row is one tappable line: lead (cover or icon), text (title + sub), meta, end icon or quiet button.
+   No box around it; the current row gets a faint fill. No divider lines between rows (brief). */
+.row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; min-height: 60px; padding: 8px 10px; border-radius: var(--radius-m); text-align: left; min-width: 0; }
+.row[aria-current] { background: var(--current); }
+.row .lead { width: 44px; height: 44px; border-radius: 6px; object-fit: cover; box-shadow: 0 0 0 1px var(--edge); }
+.row .lead-icon { width: 44px; height: 44px; display: grid; place-items: center; color: var(--t2); }
+.row .lead-icon svg { width: 20px; height: 20px; }
+.row .text { display: block; min-width: 0; color: var(--t1); }
+.row .text b { display: block; font-size: var(--fs-body); font-weight: var(--w1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .text span { display: block; font-size: var(--fs-sub); color: var(--t2); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .meta { display: block; font-size: var(--fs-meta); color: var(--t3); white-space: nowrap; }
+.row .end { width: 20px; height: 20px; color: var(--t2); }
+.row.bare { grid-template-columns: minmax(0, 1fr) auto; }
+.row.dim .text, .row.dim .text span, .row.dim .lead-icon { color: var(--t3); }
+/* Compact rows: the Shelf card. */
+.row.compact { gap: 12px; min-height: 56px; padding: 6px; margin: 0 -6px; border-radius: 10px; }
+.row.compact .lead { width: 40px; height: 40px; }
+.row.compact .text span { margin-top: 0; }
+@media (hover: hover) { button.row:hover { background: var(--hover); } button.row[aria-current]:hover { background: var(--current); } }
+button.row:active { background: var(--current); }
+button.row:disabled .text { color: var(--t3); }
+
+.list { min-height: 0; padding: 10px 10px 16px; overflow: hidden; flex: 1; display: grid; grid-auto-rows: max-content; align-content: start; gap: 2px; }
+/* A list longer than its box scrolls; the cut-off last row shows that more exist. index.html sets
+   [data-scroll] only when the rows overflow. */
+.list[data-scroll] { overflow-y: auto; overscroll-behavior: contain; }
+/* It also fades its last 28 px, so a row that ends exactly at the edge still reads as "more below".
+   [data-end] (scrolled to the end) drops the fade. Plan, Listen and Talk each found this need. */
+.list[data-scroll]:not([data-end]) { -webkit-mask-image: linear-gradient(#000 calc(100% - 28px), transparent); mask-image: linear-gradient(#000 calc(100% - 28px), transparent); }
+.list-head { font-size: var(--fs-meta); font-weight: 500; color: var(--t3); padding: 10px 10px 4px; }
+
+/* ---- Trip row: [leading figure] [bar] [eta] [Talk] -------------------------------------- */
+.trip { grid-area: trip; display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto auto; align-items: center; column-gap: 20px; padding-top: calc(var(--m) * .75); min-width: 0; }
+.trip .left { font-size: var(--trip); font-weight: var(--w1); letter-spacing: -.03em; white-space: nowrap; }
+.trip .left .unit { font-size: .58em; font-weight: var(--w2); color: var(--t2); margin-left: .15em; letter-spacing: -.01em; }
+.trip .left.small { font-size: var(--fs-body); font-weight: var(--w2); color: var(--t2); letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; }
+.trip .eta { font-size: var(--fs-body); font-weight: var(--w2); color: var(--t2); white-space: nowrap; }
+.trip .eta b { color: var(--t1); font-weight: var(--w2); }
+.trip .talk-btn { margin-left: -4px; }
+/* When the bar would be under 120 px, index.html sets [data-stack]: the bar gets its own line above. */
+.trip[data-stack] { grid-template-columns: minmax(0, 1fr) auto auto; row-gap: 12px; }
+.trip[data-stack] .bar { grid-column: 1 / -1; grid-row: 1; }
+
+/* ---- Sheet: the card slot grown. Never covers the base row or the answer's hero line ------- */
+.sheet { z-index: 2; min-width: 0; background: var(--surface2); box-shadow: var(--shadow-sheet); border-radius: var(--radius-xl);
+  display: flex; flex-direction: column; container-type: inline-size; contain: size layout; }
+@media (prefers-reduced-motion: no-preference) {
+  .sheet { animation: sheet-in var(--t-sheet) var(--ease); }
+  .app[data-flow="row"] .sheet { --from: translateX(24px); }
+  .app[data-flow="col"] .sheet { --from: translateY(24px); }
+}
+@keyframes sheet-in { from { opacity: 0; transform: var(--from); } }
+/* Row flow: from 12 below the top edge to the top of the base row, on the trailing side. */
+.app[data-flow="row"] .sheet { grid-column: listen-start / listen-end; grid-row: top-start / listen-end; justify-self: end;
+  width: calc(var(--side) + var(--m) * 2.4); margin: calc(12px - var(--m)) calc(12px - var(--m)) 0 0; }
+/* Col flow: the answer turns compact; the sheet fills from under it to the top of the base row. */
+.app[data-flow="col"]:has(> .sheet) { grid-template-rows: auto auto minmax(0, 1fr) auto; }
+.app[data-flow="col"] .sheet { grid-area: listen; margin: 0 calc(12px - var(--m)); }
+/* Row flow: the sheet reaches .4m + 12 px into the answer column; the answer gives way so it stays readable. */
+.app[data-flow="row"]:has(> .sheet) .answer { margin-right: calc(var(--m) * .4 + 12px + 16px); }
+/* The sheet replaces what sat in the card slot. */
+.app:has(> .sheet) > :is(.listen, .where-card, .codriver) { display: none; }
+.sheet-top { display: flex; align-items: center; gap: 10px; padding: 12px 8px 8px 16px; }
+.sheet-title { flex: 1; min-width: 0; padding-left: 4px; font-size: var(--fs-body); font-weight: var(--w1); letter-spacing: -.012em; overflow-wrap: anywhere; }
+
+/* Segmented control: 42 drawn, 56 hit. Icons only when the sheet is under 400 px. */
+.seg { display: flex; flex: 1; min-width: 0; background: var(--bg); border-radius: 10px; padding: 3px; box-shadow: inset 0 0 0 1px var(--edge); }
+.seg button { position: relative; flex: 1; min-width: 0; height: 42px; border-radius: var(--radius-art); font-size: var(--fs-sub); font-weight: 500; color: var(--t2); display: flex; align-items: center; justify-content: center; gap: 8px; }
+.seg button::after { content: ""; position: absolute; inset: -7px 0; }
+.seg button i { width: 16px; height: 16px; --stroke: 2; flex: none; }
+.seg button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seg button[aria-pressed="true"] { background: var(--surface2); color: var(--t1); box-shadow: inset 0 0 0 1px var(--edge); }
+@container (max-width: 400px) { .seg button span { display: none; } }
+
+/* Field: 56 tall, bg fill, hairline, 16 text, t3 placeholder. Trailing slot for Talk. */
+.field { margin: 0 16px; height: var(--hit); flex: none; border-radius: var(--radius-m); background: var(--bg); box-shadow: inset 0 0 0 1px var(--edge);
+  display: flex; align-items: center; gap: 10px; padding: 0 14px; color: var(--t3); font-size: var(--fs-body); text-align: left; }
+.field i { width: 20px; height: 20px; flex: none; }
+.field > span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.field .value { color: var(--t1); }
+.field .talk-btn { margin-right: -14px; }
+button.field { width: 100%; margin: 0; color: var(--t2); }
+button.field:active { background: var(--surface2); }
+
+/* Switch: 32 x 52 track, t1 when on. Hit 56. */
+.switch { position: relative; width: 52px; height: 32px; flex: none; border-radius: 16px; background: var(--track); transition: background var(--t-press) var(--ease); }
+.switch::before { content: ""; position: absolute; top: 4px; left: 4px; width: 24px; height: 24px; border-radius: 50%; background: var(--t2); transition: transform var(--t-press) var(--ease), background var(--t-press) var(--ease); }
+.switch::after { content: ""; position: absolute; inset: -12px -2px; }
+.switch[aria-checked="true"] { background: var(--t1); }
+.switch[aria-checked="true"]::before { transform: translateX(20px); background: var(--bg); }
+
+/* ---- Space yields first (intrinsic rule 6) --------------------------------------------- */
+/* On a short frame, gaps and padding go down to 12 before any content goes. The threshold is a
+   guess until tried on the Fold (fl is 374 tall). */
+@container frame (max-height: 420px) {
+  .card, .listen, .where-card, .codriver { padding: 12px; gap: 8px; }
+  .listen.shelf .rows { gap: 0; }
+  .trip, .shelf-row { padding-top: 12px; }
+  .where-card { gap: 4px; padding: 8px 12px; }
+}
+
+/* ---- Field input: the real text box inside .field ---------------------------------------- */
+/* The field draws the box; the input inside is bare. A focused field shows the caret (t1) and a
+   stronger hairline; the 2 px focus ring stays for every other target. */
+.field-input { flex: 1; min-width: 0; height: 100%; border: 0; padding: 0; margin: 0; background: none; outline: none;
+  font: inherit; font-size: var(--fs-body); color: var(--t1); caret-color: var(--t1); -webkit-user-select: text; user-select: text;
+  text-overflow: ellipsis; white-space: nowrap; }
+.field-input::placeholder { color: var(--t3); opacity: 1; }
+.sheet-top .field-input:not(:focus)::placeholder { color: var(--t2); }
+.field-input::-webkit-search-cancel-button, .field-input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; }
+.field:focus-within { box-shadow: inset 0 0 0 1px var(--t3); }
+.vela .field-input:focus-visible { outline: none; }
+label.field { cursor: text; }
+/* The answer card keeps the space of its buttons (they are left out: the driver answers by voice). */
+.talk-reserve { min-height: var(--hit); }

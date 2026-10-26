@@ -1,16 +1,11 @@
 /**
- * Shell. Loads config, builds the engines, and mounts the plain reference UI. The real visual
- * design is not decided yet; this exists only to prove the engines work together.
+ * Shell. Loads config, registers the service worker, builds every engine (src/shell/compose.ts)
+ * and mounts the Signal UI with them. A failed start shows the boot error screen.
  */
-import { createVelaListening } from "./audio/vela-listening";
 import { loadConfig } from "./contract";
-import { browserNetwork, createNavEngine } from "./nav/engine";
-import { GeolocationFixSource } from "./nav/position";
-import { bridgeTurnSounds, toneEarcons } from "./shell/turn-sounds";
+import { composeVela } from "./shell/compose";
 import { registerListeningWorker } from "./sw/register";
-import { createTripsReporter } from "./trips/reporter";
-import { mount as mountDrive } from "./ui/drive/mount";
-import { mount as mountListen } from "./ui/listen/mount";
+import { mount, mountBootError } from "./ui/app/mount";
 
 async function main(): Promise<void> {
   const root = document.getElementById("app");
@@ -29,31 +24,14 @@ async function main(): Promise<void> {
         location.reload();
         return;
       }
+      // A car app stays open for hours: look for a new version every 30 minutes.
+      setInterval(() => void registration.update().catch(() => undefined), 30 * 60_000);
     }
 
-    // One GPS source feeds both guidance and Trips.
-    const fixes = new GeolocationFixSource();
-    const network = browserNetwork();
-    const nav = createNavEngine({ config, fixes, network });
-    const trips = createTripsReporter({ config, network });
-    trips.follow(fixes);
-
-    const vela = createVelaListening(config);
-    // Browsers only let audio start after a tap: create the context on the first one, and
-    // resume it before every earcon in case the browser suspended it.
-    let audio: AudioContext | undefined;
-    const context = (): AudioContext => { audio ??= new AudioContext(); if (audio.state === "suspended") void audio.resume(); return audio; };
-    addEventListener("pointerdown", () => context(), { once: true, capture: true });
-    bridgeTurnSounds(nav, vela.listening, toneEarcons(context), config.turnSoundLeadMs);
-
-    root.replaceChildren();
-    const drive = document.createElement("section");
-    const listen = document.createElement("section");
-    root.append(drive, listen);
-    mountDrive(drive, { nav, trips });
-    mountListen(listen, { listening: vela.listening, downloads: vela.downloads });
+    const vela = composeVela(config);
+    mount(root, vela.deps, { version: __VELA_VERSION__, testTurnSound: vela.testTurnSound });
   } catch (error) {
-    root.textContent = error instanceof Error ? error.message : String(error);
+    mountBootError(root, error instanceof Error ? error.message : String(error));
   }
 }
 

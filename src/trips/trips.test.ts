@@ -172,6 +172,33 @@ describe("TripsReporter", () => {
     second.dispose();
   });
 
+  test("subscribe hears the queued count each time it changes, and only then", async () => {
+    const traccar = new TraccarServer();
+    traccar.behavior = "no-signal";
+    const network = new SwitchableNetwork();
+    network.up = false;
+    const trips = createTripsReporter({ config, store: new InMemoryStore(), fetcher: traccar.fetch, network });
+    const counts: number[] = [];
+    const off = trips.subscribe((queued) => counts.push(queued));
+    expect(counts).toEqual([]);
+    for (const fix of drive({ parkedSec: 2, drivingSec: 3 })) trips.record(fix);
+    // Starting to move records the fixes that showed it in one step, so counts can jump.
+    expect(counts).toEqual([2, 3, 4, 5]);
+    expect(trips.queued).toBe(5);
+
+    traccar.behavior = "ok";
+    network.set(true);
+    await trips.flush();
+    expect(counts.at(-1)).toBe(0);
+    // Never the same count twice in a row: only changes are heard.
+    for (let i = 1; i < counts.length; i++) expect(counts[i]).not.toBe(counts[i - 1]);
+    off();
+    const heard = counts.length;
+    for (const fix of drive({ parkedSec: 0, drivingSec: 2 })) trips.record(fix);
+    expect(counts).toHaveLength(heard);
+    trips.dispose();
+  });
+
   test("queue writes are batched, and a hidden page writes what is pending", async () => {
     vi.useFakeTimers({ now: T0 });
     try {

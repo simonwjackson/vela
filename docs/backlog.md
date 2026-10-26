@@ -10,22 +10,22 @@ Open items from the first build's reviews (2026-10-25). They live here until Vel
 
 ## Navigation and Trips
 - **Up to 5 s of positions can be lost.** Trips batches its writes, so a tab killed without `pagehide` loses the unsaved fixes (ADR 0008).
-- **Turn sounds can be silent after a reload.** A reload that resumes a route has no tap, so the browser blocks audio. Fix: show a "Tap to enable sounds" prompt.
+- **Turn sounds can be silent after a reload.** A reload that resumes a route has no tap, so the browser blocks audio. `AppStatus.soundBlocked` and `unblockSound()` now report it; the Signal UI must show the prompt.
 - **Field-test the guidance numbers.** Turn-sound distances, off-route thresholds and the tunnel behaviour (guidance freezes until GPS returns) are estimates.
 - **Check the Valhalla turn types.** The maneuver-type mapping comes from documentation and has not been checked against a live server.
 
-## Co-driver (Vela side, not built yet)
-- **No Vela-side co-driver client yet.** Build the SurfaceLink client (`wss://assistant.<tailnet>/people/<name>/surface`), the car tools on the phone, push to talk through voice-gateway (`?model=simon`), co-driver speech, the talk button, and the "Hey Vela" wake word (ADR 0009).
-- **One directions request at a time.** Vela must not send a second `directions.request` until the first one is answered.
+## Co-driver
+- **Vela sends no `trip.ended` and no `directions.request` yet.** SurfaceLink carries car tools and context only. When directions are added: one `directions.request` at a time; do not send a second until the first is answered.
+- **No live words while the driver talks.** `TalkState.listening.transcript` stays empty: voice-gateway transcribes a push-to-talk turn only after the commit. The words appear in `thinking.said`.
+- **Speaking progress is approximate.** The answer streams in, so `speaking.progress` is the share heard of what has arrived so far.
+- **Field-test the hands-free turn.** The wake threshold (0.25), the silence level (10 dB over the road noise) and the 1.2 s end of turn are estimates (ADR 0009).
+- **`playback.control` refuses `playItem`.** Items come from `playback.find`; the assistant cannot invent one.
 
 ## Design: what the Signal mockups need from the app
 The complete Signal design (2026-10-25) draws these states, but the app cannot reach them yet.
-- **Route preview.** `start()` routes and starts in one step. The design shows the time, distance and Start before the route begins.
-- **Stops on the way.** Adding, removing and reordering a stop on the way has no API, and `Guidance` does not carry stops on the way.
-- **Roundabout exit number.** `Stop` has no exit count, so the roundabout glyph cannot show its numeral.
-- **A manual Daylight contrast switch.** Settings shows Automatic, On and Off. Only Automatic exists.
+- **Reordering stops on the way.** Adding and removing are built (`addStop`, `removeStop`); reordering is not.
 - **Speed-limit thresholds.** The design shows the limit when the speed is 5 km/h over it for 3 s. Those numbers are a guess.
-- **Co-driver display names.** The assistant gives persona ids only. The design says "Your co-driver" in sentences when no display name exists. The picker descriptions for Navigator, Companion and Guide are placeholders.
+- **Co-driver display names.** The assistant gives persona ids only. Vela shows Navigator, Companion and Guide for the three default ids and "Your co-driver" for any other (`src/codriver/names.ts`). The picker descriptions are placeholders.
 
 ## Decisions to make
 - **Typing a destination while the car moves.** Nothing says whether search is blocked while moving. The design draws it as allowed.

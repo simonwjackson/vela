@@ -18,6 +18,8 @@ export interface Segment {
   /** Valhalla maneuver type at the start of the segment. */
   readonly type: number;
   readonly speedLimitKmh?: number;
+  /** Roundabout entries (type 26): Valhalla's `roundabout_exit_count`. */
+  readonly exitCount?: number;
 }
 
 export interface BuiltLeg {
@@ -48,6 +50,7 @@ export function buildLeg(start: LatLng, segments: readonly Segment[], arriveName
       end_shape_index: points.length - 1,
       length: seg.meters / 1000,
       time: seg.meters / seg.speedMps,
+      ...(seg.exitCount !== undefined ? { roundabout_exit_count: seg.exitCount } : {}),
     });
   }
   maneuvers.push({

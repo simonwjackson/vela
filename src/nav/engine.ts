@@ -2,8 +2,12 @@
  * The NavEngine: fetches a whole Route once, caches it, and guides from GPS alone.
  * Re-routes when the car leaves the Route and there is signal; otherwise keeps guiding
  * from the cached Route with `offline: true` (ADR 0002).
+ *
+ * A Route can be previewed before it starts (`preview` → `startPreview`). Stops on the way are
+ * added after the other stops and before the Destination; removing one re-routes.
  */
 import type {
+  DaylightMode,
   Fix,
   Guidance,
   LatLng,
@@ -11,12 +15,14 @@ import type {
   NavState,
   Place,
   Readouts,
+  Route,
+  Settings,
   Stop,
   TurnSoundEvent,
   VelaConfig,
 } from "../contract";
 import { decodePolyline } from "./geo";
-import { STOP_PASS_METERS, computeGuidance } from "./guidance";
+import { computeGuidance, passedViaCount } from "./guidance";
 import { ON_ROUTE, type OffRouteState, leaveThresholdM, nextOffRoute } from "./offRoute";
 import { PlaceBook, isPlace } from "./places";
 import type { FixSource } from "./position";
@@ -45,6 +51,14 @@ export interface NavEngineDeps {
   readonly formatClock?: (epochMs: number) => string;
   /** How long start() waits for a first GPS fix. */
   readonly firstFixTimeoutMs?: number;
+  /** The Daylight contrast setting. Without it, "auto". */
+  readonly settings?: DaylightSetting;
+}
+
+/** The part of the SettingsStore the engine reads. */
+export interface DaylightSetting {
+  readonly value: Pick<Settings, "daylight">;
+  subscribe(fn: (s: Pick<Settings, "daylight">) => void): () => void;
 }
 
 export interface DisposableNavEngine extends NavEngine {
@@ -60,6 +74,8 @@ export const REROUTE_RETRY_MS = 10_000;
 const LAST_POSITION_EVERY_MS = 60_000;
 /** Speed readout goes blank when the last fix is older than this. */
 const SPEED_STALE_MS = 10_000;
+/** Readouts (clock, fix age) refresh this often without a fix. */
+const READOUTS_EVERY_MS = 1_000;
 /** The snap window looks this far behind the last position. */
 const SNAP_BEHIND_M = 200;
 
@@ -94,6 +110,8 @@ export function createNavEngine(deps: NavEngineDeps): DisposableNavEngine {
   const soundListeners = new Set<(event: TurnSoundEvent) => void>();
 
   let state: NavState = { kind: "idle" };
+  /** The Route shown in `preview`, not yet adopted. */
+  let previewed: PlannedRoute | undefined;
   let readouts: Readouts = { clock: formatClock(now()), daylight: false };
   let planned: PlannedRoute | undefined;
   let track: RouteTrack | undefined;
@@ -120,7 +138,8 @@ export function createNavEngine(deps: NavEngineDeps): DisposableNavEngine {
 
   const unsubscribeFixes = deps.fixes.subscribe(onFix);
   const unsubscribeNetwork = network.subscribe(onNetworkChange);
-  const clockTimer = setInterval(refreshReadouts, 15_000);
+  const unsubscribeSettings = deps.settings?.subscribe(() => refreshReadouts()) ?? (() => undefined);
+  const clockTimer = setInterval(refreshReadouts, READOUTS_EVERY_MS);
   resumeCachedRoute();
   refreshReadouts();
 
@@ -173,7 +192,7 @@ export function createNavEngine(deps: NavEngineDeps): DisposableNavEngine {
   }
 
   function resumeCachedRoute(): void {
-    const cached = readJson(store, ROUTE_KEY, isPlannedRoute);
+    const cached = withRouteVia(readJson(store, ROUTE_KEY, isPlannedRoute));
     if (!cached || now() - cached.route.fetchedAt > ROUTE_CACHE_MAX_AGE_MS) {
       store.remove(ROUTE_KEY);
       return;
@@ -185,6 +204,7 @@ export function createNavEngine(deps: NavEngineDeps): DisposableNavEngine {
 
   function clearRoute(): void {
     planned = undefined;
+    previewed = undefined;
     track = undefined;
     along = 0;
     offState = ON_ROUTE;
@@ -212,19 +232,20 @@ export function createNavEngine(deps: NavEngineDeps): DisposableNavEngine {
     const position = lastPosition();
     const speed = fix && t - fix.at < SPEED_STALE_MS ? fix.speedMps : undefined;
     const limit = planned && !offState.offRoute ? speedLimitAt(planned.speedLimits, along) : undefined;
-    const hour = new Date(t).getHours();
+    const fixAgeMs = fix ? Math.max(0, Math.floor((t - fix.at) / 1000) * 1000) : undefined;
     const next: Readouts = {
       clock: formatClock(t),
       ...(speed !== undefined ? { speedKmh: speed * 3.6 } : {}),
       ...(limit !== undefined ? { speedLimitKmh: limit } : {}),
-      // Without any position yet, assume daylight between 07:00 and 19:00 local time.
-      daylight: position ? isDaylight(t, position) : hour >= 7 && hour < 19,
+      daylight: resolveDaylight(deps.settings?.value.daylight ?? "auto", t, position),
+      ...(fixAgeMs !== undefined ? { fixAgeMs } : {}),
     };
     const changed =
       next.clock !== readouts.clock ||
       next.speedKmh !== readouts.speedKmh ||
       next.speedLimitKmh !== readouts.speedLimitKmh ||
-      next.daylight !== readouts.daylight;
+      next.daylight !== readouts.daylight ||
+      next.fixAgeMs !== readouts.fixAgeMs;
     readouts = next;
     if (changed) notify();
   }
@@ -283,11 +304,9 @@ export function createNavEngine(deps: NavEngineDeps): DisposableNavEngine {
     }
   }
 
-  /** Places not yet reached: waypoints whose arrival Stop is still ahead, then the Destination. */
+  /** Places not yet reached: stops on the way whose arrival Stop is still ahead, then the Destination. */
   function remainingVia(p: PlannedRoute): Place[] {
-    const arrivals = p.route.stops.filter((s) => s.maneuver === "arrive");
-    const passed = arrivals.slice(0, -1).filter((s) => s.routeMeters - STOP_PASS_METERS < along).length;
-    return p.via.slice(passed);
+    return p.via.slice(passedViaCount(p.route, along));
   }
 
   function fromFix(fix: Fix): LatLng & { headingDeg?: number } {
@@ -343,6 +362,48 @@ export function createNavEngine(deps: NavEngineDeps): DisposableNavEngine {
     });
   }
 
+  /** Route to a Destination from the current fix, through `routing`. Undefined after an error or a newer request. */
+  async function plan(destination: Place): Promise<PlannedRoute | undefined> {
+    const gen = ++generation;
+    clearRoute();
+    places.addRecent(destination);
+    setState({ kind: "routing", destination });
+    try {
+      const fix = await waitForFix();
+      if (gen !== generation) return undefined;
+      const next = await router.route({ from: fromFix(fix), via: [destination] });
+      return gen === generation ? next : undefined;
+    } catch (error) {
+      if (gen !== generation) return undefined;
+      const message =
+        error instanceof RouteError && error.failure.kind === "network"
+          ? "No signal. A Route needs signal to start; guidance then works without it."
+          : error instanceof Error
+            ? error.message
+            : String(error);
+      setState({ kind: "error", message });
+      return undefined;
+    }
+  }
+
+  function startGuiding(next: PlannedRoute): void {
+    previewed = undefined;
+    adopt(next, true);
+    publishGuidance();
+    notify();
+  }
+
+  /** Re-route the previewed Route through `via`. Rejects and keeps the preview on failure. */
+  async function replan(via: readonly Place[]): Promise<void> {
+    const fix = deps.fixes.latest();
+    if (!fix) throw new Error("No GPS position yet. Check that location is allowed for Vela.");
+    const gen = generation;
+    const next = await router.route({ from: fromFix(fix), via });
+    if (gen !== generation || state.kind !== "preview") return;
+    previewed = next;
+    setState({ kind: "preview", route: next.route });
+  }
+
   const engine: DisposableNavEngine = {
     get state() {
       return state;
@@ -352,35 +413,49 @@ export function createNavEngine(deps: NavEngineDeps): DisposableNavEngine {
     },
 
     async start(destination) {
-      const gen = ++generation;
-      clearRoute();
-      places.addRecent(destination);
-      setState({ kind: "routing", destination });
-      try {
-        const fix = await waitForFix();
-        if (gen !== generation) return;
-        const next = await router.route({ from: fromFix(fix), via: [destination] });
-        if (gen !== generation) return;
-        adopt(next, true);
-        publishGuidance();
-        notify();
-      } catch (error) {
-        if (gen !== generation) return;
-        const message =
-          error instanceof RouteError && error.failure.kind === "network"
-            ? "No signal. A Route needs signal to start; guidance then works without it."
-            : error instanceof Error
-              ? error.message
-              : String(error);
-        setState({ kind: "error", message });
-      }
+      const next = await plan(destination);
+      if (next) startGuiding(next);
     },
 
-    async addWaypoint(place) {
+    async preview(destination) {
+      const next = await plan(destination);
+      if (!next) return;
+      previewed = next;
+      setState({ kind: "preview", route: next.route });
+    },
+
+    startPreview() {
+      if (state.kind !== "preview" || !previewed) return;
+      startGuiding(previewed);
+    },
+
+    cancelPreview() {
+      if (state.kind !== "preview") return;
+      generation++;
+      clearRoute();
+      setState({ kind: "idle" });
+    },
+
+    async addStop(place) {
+      if (state.kind === "preview" && previewed) {
+        const via = previewed.via;
+        return replan([...via.slice(0, -1), place, via[via.length - 1] as Place]);
+      }
       if (!planned) return engine.start(place);
       const via = remainingVia(planned);
       const destination = via[via.length - 1] as Place;
       await reroute([...via.slice(0, -1), place, destination]);
+    },
+
+    async removeStop(index) {
+      const current = state.kind === "preview" ? previewed : planned;
+      if (!current || !Number.isInteger(index) || index < 0 || index >= current.route.via.length) {
+        throw new RangeError(`There is no stop on the way at ${index}`);
+      }
+      if (state.kind === "preview") return replan(current.via.filter((_, i) => i !== index));
+      const passed = passedViaCount(current.route, along);
+      if (index < passed) throw new RangeError("That stop on the way is already behind you");
+      await reroute(remainingVia(current).filter((_, i) => i !== index - passed));
     },
 
     end() {
@@ -414,6 +489,7 @@ export function createNavEngine(deps: NavEngineDeps): DisposableNavEngine {
       generation++;
       sounds.reset();
       clearInterval(clockTimer);
+      unsubscribeSettings();
       unsubscribeFixes();
       unsubscribeNetwork();
       stateListeners.clear();
@@ -421,6 +497,22 @@ export function createNavEngine(deps: NavEngineDeps): DisposableNavEngine {
     },
   };
   return engine;
+}
+
+/** Daylight contrast from the setting; "auto" is between sunrise and sunset at the position. */
+export function resolveDaylight(mode: DaylightMode, at: number, position: LatLng | undefined): boolean {
+  if (mode === "on") return true;
+  if (mode === "off") return false;
+  if (position) return isDaylight(at, position);
+  // Without any position yet, assume daylight between 07:00 and 19:00 local time.
+  const hour = new Date(at).getHours();
+  return hour >= 7 && hour < 19;
+}
+
+/** Routes cached before `Route.via` existed get it from the planned places. */
+function withRouteVia(p: PlannedRoute | undefined): PlannedRoute | undefined {
+  if (!p || Array.isArray((p.route as Partial<Route>).via)) return p;
+  return { ...p, route: { ...p.route, via: p.via.slice(0, -1) } };
 }
 
 function isLatLng(v: unknown): v is LatLng {

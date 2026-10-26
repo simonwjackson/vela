@@ -119,6 +119,8 @@ interface ValhallaManeuver {
   readonly street_names?: readonly string[];
   readonly begin_shape_index: number;
   readonly time: number;
+  /** Roundabout entries only: the exit to take, counted from the entry. */
+  readonly roundabout_exit_count?: number;
 }
 
 interface ValhallaLeg {
@@ -170,6 +172,7 @@ export function parseRoute(raw: unknown, via: readonly Place[], fetchedAt: numbe
         at: points[pointIndex] as LatLng,
         routeMeters,
         ...(kind.info ? { info: true } : {}),
+        ...(m.type === ROUNDABOUT_ENTER && m.roundabout_exit_count !== undefined ? { exit: m.roundabout_exit_count } : {}),
       });
     }
   });
@@ -181,6 +184,7 @@ export function parseRoute(raw: unknown, via: readonly Place[], fetchedAt: numbe
   }
   const route: Route = {
     destination,
+    via: via.slice(0, -1),
     stops,
     shape: encodePolyline(points, 6),
     totalMeters: track.totalMeters,
@@ -205,6 +209,9 @@ function parseLeg(raw: unknown): ValhallaLeg {
       ...(names ? { street_names: names } : {}),
       begin_shape_index: m.begin_shape_index,
       time: typeof m.time === "number" ? m.time : 0,
+      ...(Number.isInteger(m.roundabout_exit_count) && (m.roundabout_exit_count as number) > 0
+        ? { roundabout_exit_count: m.roundabout_exit_count as number }
+        : {}),
     };
   });
   return { shape: raw.shape, maneuvers };
@@ -220,6 +227,9 @@ function monotonic(knots: [number, number][]): [number, number][] {
   }
   return out;
 }
+
+/** Valhalla's kRoundaboutEnter; only it carries `roundabout_exit_count`. */
+const ROUNDABOUT_ENTER = 26;
 
 interface Kind {
   readonly maneuver: Maneuver;

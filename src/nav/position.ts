@@ -51,16 +51,19 @@ export class GeolocationFixSource extends ManualFixSource {
   private watchId: number | undefined;
   status: GpsStatus = "waiting";
 
-  constructor(geolocation: Geolocation | undefined = globalThis.navigator?.geolocation) {
+  constructor(
+    geolocation: Geolocation | undefined = globalThis.navigator?.geolocation,
+    private readonly onStatus: (status: GpsStatus) => void = () => undefined,
+  ) {
     super();
     this.geolocation = geolocation;
     if (!geolocation) {
-      this.status = "unavailable";
+      this.setStatus("unavailable");
       return;
     }
     this.watchId = geolocation.watchPosition(
       (pos) => {
-        this.status = "ok";
+        this.setStatus("ok");
         const c = pos.coords;
         this.push({
           lat: c.latitude,
@@ -72,10 +75,16 @@ export class GeolocationFixSource extends ManualFixSource {
         });
       },
       (error) => {
-        this.status = error.code === error.PERMISSION_DENIED ? "denied" : "unavailable";
+        this.setStatus(error.code === error.PERMISSION_DENIED ? "denied" : "unavailable");
       },
       { enableHighAccuracy: true, maximumAge: 0, timeout: 30_000 },
     );
+  }
+
+  private setStatus(status: GpsStatus): void {
+    if (status === this.status) return;
+    this.status = status;
+    this.onStatus(status);
   }
 
   stop(): void {

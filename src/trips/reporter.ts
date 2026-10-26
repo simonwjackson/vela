@@ -47,7 +47,8 @@ export interface TripsDeps {
 
 export interface TripsEngine extends TripsReporter {
   readonly status: TripsStatus;
-  subscribe(listener: (status: TripsStatus) => void): () => void;
+  /** The whole status (moving, queued, last error), at once and on every change. */
+  subscribeStatus(listener: (status: TripsStatus) => void): () => void;
   /** Record every fix from `fixes` until the returned function is called. */
   follow(fixes: FixSource): () => void;
   dispose(): void;
@@ -74,8 +75,11 @@ export function createTripsReporter(deps: TripsDeps): TripsEngine {
   const fetcher = deps.fetcher ?? ((input, init) => fetch(input, init));
   const online = () => deps.network?.online() ?? globalThis.navigator?.onLine ?? true;
   const listeners = new Set<(status: TripsStatus) => void>();
+  const queueListeners = new Set<(queued: number) => void>();
 
   const queue: Row[] = readJson(store, QUEUE_KEY, isRows) ?? [];
+  /** The count queue listeners last heard. */
+  let lastQueued = queue.length;
   let motion: Motion = PARKED;
   let lastError: string | undefined;
   let flushing: Promise<void> | undefined;
@@ -94,6 +98,9 @@ export function createTripsReporter(deps: TripsDeps): TripsEngine {
   function notify(): void {
     const s = status();
     for (const l of [...listeners]) l(s);
+    if (s.queued === lastQueued) return;
+    lastQueued = s.queued;
+    for (const l of [...queueListeners]) l(s.queued);
   }
 
   function persistNow(): void {
@@ -190,10 +197,17 @@ export function createTripsReporter(deps: TripsDeps): TripsEngine {
       return flushing;
     },
 
-    subscribe(listener) {
+    subscribeStatus(listener) {
       listeners.add(listener);
       listener(status());
       return () => listeners.delete(listener);
+    },
+
+    subscribe(fn) {
+      queueListeners.add(fn);
+      return () => {
+        queueListeners.delete(fn);
+      };
     },
 
     follow(fixes) {
@@ -208,6 +222,7 @@ export function createTripsReporter(deps: TripsDeps): TripsEngine {
       if (retryTimer !== undefined) clearTimeout(retryTimer);
       unsubscribeNetwork?.();
       listeners.clear();
+      queueListeners.clear();
     },
   };
   return reporter;

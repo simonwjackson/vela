@@ -1,0 +1,1 @@
+upstream k2-fsa/sherpa-onnx 532f1b5a8a207bf53b116b747207c1506696c843, built with nixpkgs emscripten 4.0.23 via build-wasm-simd-kws.sh plus sherpa-onnx-wake-patch.diff (adds result.score, exports FS, no preloaded model). License Apache-2.0.

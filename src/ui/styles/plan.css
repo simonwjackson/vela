@@ -1,0 +1,151 @@
+/* plan area: local styles. Owned by the plan area designer.
+   Scope: .app or a plan- class prefix. Tokens only from ../system.css:
+   five type sizes (--hero, --road, 16, 14, 13), the three grey tiers, no new colours.
+
+   Parts
+   ---------------------------------------------------------------------------------------
+   Stage beside a sheet   row flow: gives way like the answer; col flow: compact (art 40, 1 line)
+   Field in a sheet head  .plan-field (.plan-typing keeps the end in view, .plan-caret)
+   Place row              .row.plan-place > .plan-pick(.lead-icon, .text > b + .plan-sub) + .btn.quiet | .plan-done
+   Stop row               .row.plan-stop > .plan-drag | .lead-icon(flag) + .text + .btn.quiet
+   Sheet footer           .plan-foot (stays on the surface while the list scrolls)
+   Messages               .plan-note (glyph + title + sub), .plan-empty, .plan-ask
+   Preview                .plan-preview > .plan-where + .plan-time + .plan-facts
+   Quiet answer w/ name   .plan-quiet (2 lines, then an ellipsis)
+   Keyboard               .plan-kb (the OS keyboard, a plain grey block), .sheet.plan-full, .plan-compact
+   --------------------------------------------------------------------------------------- */
+
+/* ---- Where to card with no places: the field alone, without card chrome ------------------- */
+.app .where-card:not(:has(.row)) { background: none; border-color: transparent; box-shadow: none; padding: 0; }
+
+/* ---- The stage beside a sheet --------------------------------------------------------- */
+/* Row flow: the sheet reaches into the answer column; the stage gives way as the answer does. */
+.app[data-flow="row"]:has(> .sheet) .stage { margin-right: calc(var(--m) * .4 + 12px + 16px); }
+/* The cover shrinks so the title keeps its words. */
+.app[data-flow="row"]:has(> .sheet) .stage .art { width: calc(var(--stageart) * .66); height: calc(var(--stageart) * .66); }
+/* Col flow: the stage turns compact above the sheet (the answer's compact form, for Now playing). */
+.app[data-flow="col"]:has(> .sheet) .stage { align-self: start; gap: 12px; }
+.app[data-flow="col"]:has(> .sheet) .stage .art { width: 40px; height: 40px; border-radius: 6px; }
+.app[data-flow="col"]:has(> .sheet) .stage .title { font-size: var(--fs-body); line-height: 1.3; letter-spacing: -.012em; -webkit-line-clamp: 1; }
+.app[data-flow="col"]:has(> .sheet) .stage .by { margin-top: 0; }
+.app[data-flow="col"]:has(> .sheet) .stage :is(.bar, .keys) { display: none; }
+
+/* ---- Field in the sheet header ---------------------------------------------------------- */
+.app .sheet-top .plan-field { flex: 1; width: auto; margin: 0; min-width: 0; }
+.app .sheet-top button.plan-field { color: var(--t2); }
+/* While typing, a long value keeps its end (and the caret) in view, as an input does. */
+.plan-field .plan-typing { direction: rtl; text-align: left; }
+.plan-caret { display: inline-block; width: 2px; height: 1.2em; margin-left: 1px; vertical-align: -.25em; border-radius: 1px; background: var(--t1); }
+
+/* ---- Lists in Plan sheets --------------------------------------------------------------- */
+/* max-content rows: a row that wraps (the Route sheet) keeps its height inside a scroll region.
+   The shared .list lets auto rows shrink to the row's min-height (60) when the list overflows. */
+.app .plan-list { gap: 0; padding-top: 2px; }
+/* The bottom fade on scrolling lists now lives in system.css. */
+.app .plan-list .list-head:not(:first-child) { padding-top: 18px; }
+
+/* Place row: the text is one target; a quiet action trails it. */
+.app .row.plan-place { grid-template-columns: minmax(0, 1fr) auto; gap: 4px; padding: 0; }
+.plan-pick { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: center; min-height: 60px; min-width: 0; padding: 8px 10px; border-radius: var(--radius-m); text-align: left; }
+@media (hover: hover) { .plan-pick:hover:not([aria-disabled="true"]) { background: var(--hover); } }
+.plan-pick:active:not([aria-disabled="true"]) { background: var(--current); }
+.plan-pick[aria-disabled="true"] { cursor: default; }
+/* The sub line: distance (or time) first in t3, then the address in t2. No separator glyph. */
+.app .row .text .plan-sub { display: flex; align-items: baseline; gap: 8px; min-width: 0; margin-top: 2px; overflow: visible; }
+.plan-sub em { flex: none; font-style: normal; font-size: var(--fs-meta); font-weight: 500; color: var(--t3); }
+.app .row .text .plan-sub span { margin: 0; min-width: 0; flex: 0 1 auto; }
+.plan-done { display: flex; align-items: center; gap: 8px; min-height: var(--hit); padding: 0 18px 0 12px; font-size: var(--fs-sub); color: var(--t2); }
+.plan-done i { width: 16px; height: 16px; --stroke: 2; }
+
+/* Stop row (Route sheet): one line, ellipsis, as every row. At rest a pin leads; editing, the drag handle. */
+.app .row.plan-stop { grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px; padding: 8px 0; align-items: center; }
+.app .row.plan-stop:not(:has(.btn)) { padding-right: 18px; }
+.app .row.plan-stop .lead-icon { color: var(--t2); }
+.app .row.plan-stop.end .lead-icon { color: var(--t1); }
+.app .row.plan-stop .lead-icon { width: var(--hit); height: 44px; }
+.app .row.plan-stop .lead-icon svg { width: 20px; height: 20px; }
+.plan-drag { color: var(--t3); cursor: grab; }
+
+/* ---- Sheet parts ------------------------------------------------------------------------ */
+/* A sheet that hugs its content (Route preview): centred on the card slot, never taller than it.
+   Start sits 24 px under the figures it acts on. */
+.app .sheet.plan-hug { contain: layout; align-self: center; max-height: 100%; }
+.app[data-flow="col"] .sheet.plan-hug { align-self: start; }
+.sheet.plan-hug .plan-body { flex: 0 1 auto; padding-bottom: 24px; }
+.sheet.plan-hug .plan-foot { padding-top: 0; }
+/* Sheet-top buttons (Edit) keep the 56 hit. */
+.app .sheet-top > .btn.quiet { flex: none; padding: 0 12px; }
+.plan-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; line-height: 1.3; }
+.plan-foot { flex: none; padding: 8px 16px 16px; }
+.plan-foot .btn-row { flex-wrap: nowrap; }
+.plan-foot .btn-row > .btn { flex: 1 1 0; }
+.plan-actions { justify-content: flex-end; }
+.plan-body { flex: 1; padding: 8px 20px 16px; min-height: 0; overflow: hidden; }
+.plan-empty { font-size: var(--fs-sub); color: var(--t2); padding: 4px 10px 10px; overflow-wrap: anywhere; }
+.plan-note { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 14px; align-items: start; padding: 8px 10px; }
+.plan-note i { width: 20px; height: 20px; margin: 2px auto 0; color: var(--t2); }
+.plan-note b { display: block; font-size: var(--fs-body); font-weight: var(--w1); color: var(--t1); overflow-wrap: anywhere; }
+.plan-note span { display: block; font-size: var(--fs-sub); color: var(--t2); margin-top: 4px; line-height: 1.4; overflow-wrap: anywhere; }
+.app .plan-list .plan-note { padding-bottom: 12px; }
+.plan-ask { font-size: var(--fs-body); font-weight: var(--w1); color: var(--t1); line-height: 1.3; margin: 4px 4px 12px;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+
+/* Route preview: the time is the answer, at the trip figure's size. */
+.plan-preview { display: flex; flex-direction: column; gap: 4px; padding-left: 20px; overflow-y: auto; }
+.plan-preview > * { flex: none; }
+.plan-where { font-size: var(--fs-sub); color: var(--t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plan-time { margin-top: 20px; font-size: var(--road); font-weight: var(--w1); letter-spacing: -.03em; line-height: 1.15; white-space: nowrap; }
+.plan-time .unit { font-size: .58em; font-weight: var(--w2); color: var(--t2); margin-left: .15em; letter-spacing: -.01em; }
+.plan-facts { display: flex; flex-wrap: wrap; column-gap: 20px; row-gap: 2px; font-size: var(--fs-body); font-weight: var(--w2); color: var(--t2); }
+.plan-facts span { white-space: nowrap; }
+.plan-facts b { color: var(--t1); font-weight: var(--w2); }
+
+/* Save a place: the result row opens in place. */
+.plan-saving { min-width: 0; border-radius: var(--radius-m); background: var(--current); }
+.plan-saving .plan-pick:hover { background: none; }
+/* Field and buttons share a line while the field keeps 180 px; otherwise the buttons wrap below. */
+/* Field on its own line, buttons under it, at every width (the name needs the room). */
+.plan-save-form { display: grid; gap: 8px; padding: 0 10px 10px; }
+.app .plan-save-form .field { margin: 0; min-width: 0; }
+.plan-save-form .btn-row { flex-wrap: nowrap; }
+.plan-name .value { color: var(--t1); }
+
+/* Quiet answer whose sentence holds a name: 2 lines, then an ellipsis. */
+.plan-quiet { align-items: flex-start; }
+.plan-quiet i { margin-top: .08em; }
+.plan-quiet > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; line-height: 1.2; }
+
+/* Trip row before a Route exists: bar and eta only, dimmed. */
+.app .trip.plan-waiting { grid-template-columns: minmax(0, 1fr) auto auto; }
+
+/* ---- Keyboard open ---------------------------------------------------------------------- */
+/* The OS keyboard's space: the frame lays out above it (the visual viewport). Transparent: the keyboard covers it. */
+.plan-kb { grid-area: kb; margin: 0 calc(var(--m) * -1) calc(var(--m) * -1); }
+/* The dev page draws the OS keyboard as a plain grey block, as the mockup does. */
+.vela[data-dev] .plan-kb { background: var(--track); box-shadow: inset 0 1px 0 var(--edge); }
+/* Space yields first: the margins above the frame and around B tighten to 12. */
+.app:has(> .plan-kb) { padding-top: 12px; row-gap: 12px; }
+.app:has(> .plan-kb) > :is(.trip, .shelf-row) { padding-top: 0; }
+/* biome-ignore lint/correctness/noInvalidGridAreas: one column per row is consistent; the rule miscounts single-name rows */
+.app[data-flow="col"]:has(> .plan-kb) { grid-template-areas: "top" "answer" "listen" "trip" "kb"; grid-template-rows: auto auto minmax(0, 1fr) auto auto; }
+/* biome-ignore lint/correctness/noInvalidGridAreas: one column per row is consistent; the rule miscounts single-name rows */
+.app[data-flow="row"]:has(> .plan-kb) { grid-template-areas: "top top" "answer listen" "trip trip" "kb kb"; grid-template-rows: auto minmax(0, 1fr) auto auto; }
+/* Visual viewport under 300: the sheet takes all of it. Talk is in the field. */
+/* biome-ignore lint/correctness/noInvalidGridAreas: one column per row is consistent; the rule miscounts single-name rows */
+.app:has(> .sheet.plan-full) { grid-template: "sheet" minmax(0, 1fr) "kb" auto / minmax(0, 1fr); padding: 12px 12px 0; row-gap: 0; }
+.app > .sheet.plan-full { grid-area: sheet; width: auto; margin: 0; justify-self: stretch; border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
+.app:has(> .sheet.plan-full) > .plan-kb { margin: 0 -12px; }
+.sheet.plan-full .sheet-top { gap: 12px; }
+/* The compact answer, in the header of a full sheet: one line, beside the field (the wide axis pays). */
+.plan-compact { display: flex; align-items: center; gap: 10px; flex: 0 1 auto; max-width: 42%; min-width: 0; padding-left: 4px;
+  font-size: var(--road); font-weight: var(--w2); letter-spacing: -.022em; }
+.plan-compact i { width: 1.05em; height: 1.05em; flex: none; --stroke: 2.1; }
+.plan-compact b { flex: none; font-weight: var(--w1); white-space: nowrap; }
+.plan-compact span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Short frame (fl): the shared tightening, plus the Plan sheet parts. */
+@container frame (max-height: 420px) {
+  .plan-foot { padding: 4px 12px 12px; }
+  .plan-time { margin-top: 12px; }
+  .app .plan-list .list-head:not(:first-child) { padding-top: 12px; }
+}

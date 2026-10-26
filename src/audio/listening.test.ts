@@ -277,3 +277,84 @@ describe("Turn sounds near a narration window start, without signal", () => {
     listening.dispose();
   });
 });
+
+describe("holding for the Co-driver's speech", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
+  });
+
+  test("Music ducks for the whole answer, through a Turn sound, and restores on release", async () => {
+    const fixture = createListeningFixture();
+    const { listening, elements } = fixture;
+    await listening.send({ type: "playItem", item: await musicItem(fixture) });
+    await settle();
+    const before = elements.music.volume;
+
+    const release = listening.holdForTalk();
+    expect(elements.music.volume).toBeCloseTo(before * 0.25);
+    expect(elements.music.paused).toBe(false);
+    // A Turn sound ends mid-answer: Music stays ducked.
+    await listening.yieldForTurnSound(500);
+    await vi.advanceTimersByTimeAsync(600);
+    expect(elements.music.volume).toBeCloseTo(before * 0.25);
+
+    release();
+    expect(elements.music.volume).toBeCloseTo(before);
+    release(); // a second call does nothing
+    expect(elements.music.volume).toBeCloseTo(before);
+    listening.dispose();
+  });
+
+  test("a Podcast pauses while the Co-driver speaks and resumes two seconds back", async () => {
+    const fixture = createListeningFixture();
+    const { listening, elements } = fixture;
+    await listening.send({ type: "playItem", item: episode });
+    await settle();
+    elements.podcasts.advance(300);
+
+    const first = listening.holdForTalk();
+    const second = listening.holdForTalk();
+    expect(elements.podcasts.paused).toBe(true);
+    first();
+    await settle();
+    expect(elements.podcasts.paused).toBe(true);
+    second();
+    await settle();
+    expect(elements.podcasts.paused).toBe(false);
+    expect(elements.podcasts.currentTime).toBe(300 - TALK_RESUME_BACK_SEC);
+    listening.dispose();
+  });
+
+  test("a Book paused by a Turn sound waits for the answer to end", async () => {
+    const fixture = createListeningFixture();
+    const { listening, elements } = fixture;
+    await listening.send({ type: "playItem", item: book });
+    await settle();
+    elements.books.advance(25);
+    await listening.yieldForTurnSound(800);
+    const release = listening.holdForTalk();
+    await vi.advanceTimersByTimeAsync(2000);
+    await settle();
+    expect(elements.books.paused).toBe(true);
+    release();
+    await settle();
+    expect(elements.books.paused).toBe(false);
+    expect(elements.books.currentTime).toBe(25 - TALK_RESUME_BACK_SEC);
+    listening.dispose();
+  });
+
+  test("a driver pause during the answer cancels the resume", async () => {
+    const fixture = createListeningFixture();
+    const { listening, elements } = fixture;
+    await listening.send({ type: "playItem", item: episode });
+    await settle();
+    elements.podcasts.advance(60);
+    const release = listening.holdForTalk();
+    await listening.send({ type: "pause" });
+    release();
+    await settle();
+    expect(elements.podcasts.paused).toBe(true);
+    expect(elements.podcasts.currentTime).toBe(60);
+    listening.dispose();
+  });
+});

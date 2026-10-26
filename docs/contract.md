@@ -30,8 +30,8 @@ Rules:
 | Valhalla | `POST /route` with `costing: auto`, `directions_options.units: kilometers` | The whole Route and every instruction are fetched once at start, then guidance runs offline (ADR 0002). |
 | Photon | `GET /api?q=…&lat=…&lon=…` | Behind one swappable function. |
 | Traccar | OsmAnd protocol: `GET /?id=…&lat=…&lon=…&timestamp=…&speed=…` on the OsmAnd port | Queued offline, sent with original timestamps (ADR 0008). |
-| Assistant | `WebSocket /surface`, the SurfaceLink protocol in `src/contract/surface.ts` | Car tools run in Vela. The assistant side is built in its own repo. |
-| voice-gateway | OpenAI Realtime-style WebSocket, push to talk | The Co-driver's voice. Speech-to-text and voices stay on the fleet. |
+| Assistant | `WebSocket <assistantSurfacePath>` on `origins.assistant` (default `/surface`), the SurfaceLink protocol in `src/contract/surface.ts` | Car tools run in Vela. The assistant side is built in its own repo. The assistant serves one surface per person, so the host configuration sets the path in `/config.json`; it starts with `/`, and the person's name never goes in this repository. |
+| voice-gateway | `WebSocket /v1/realtime?model=<talkModel>` (OpenAI Realtime subset, pcm16 at 24 kHz), push to talk; `talkModel` comes from `/config.json` (default `assistant`), since the gateway's name for the driver's assistant is personal | The Co-driver's voice. Speech-to-text and voices stay on the fleet. Message order: `src/codriver/talk.ts`. The "Hey Vela" wake word never calls it; it runs on the phone (ADR 0009). |
 
 ## Done means
 

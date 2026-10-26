@@ -334,12 +334,12 @@ describe("turn sounds", () => {
 });
 
 describe("waypoints, errors and places", () => {
-  test("addWaypoint re-routes through the place, before the Destination", async () => {
+  test("addStop re-routes through the place, before the Destination", async () => {
     const h = setup();
     h.fixes.push({ ...ORIGIN, at: Date.now(), accuracyM: 5 });
     await h.engine.start(h.destination);
     const fuel: Place = { name: "Invented Fuel", ...destinationPoint(ORIGIN, 45, 800) };
-    await h.engine.addWaypoint(fuel);
+    await h.engine.addStop(fuel);
     const body = h.valhalla.routeRequests()[1]?.body as { locations: { lat: number }[] };
     expect(body.locations.map((l) => l.lat.toFixed(4))).toEqual(
       [ORIGIN.lat, fuel.lat, h.destination.lat].map((x) => x.toFixed(4)),
@@ -351,12 +351,12 @@ describe("waypoints, errors and places", () => {
     h.engine.dispose();
   });
 
-  test("addWaypoint without signal rejects and keeps the current Route", async () => {
+  test("addStop without signal rejects and keeps the current Route", async () => {
     const h = setup();
     h.fixes.push({ ...ORIGIN, at: Date.now(), accuracyM: 5 });
     await h.engine.start(h.destination);
     h.valhalla.behavior = "no-signal";
-    await expect(h.engine.addWaypoint({ name: "Invented Diner", ...ORIGIN })).rejects.toThrow("No signal");
+    await expect(h.engine.addStop({ name: "Invented Diner", ...ORIGIN })).rejects.toThrow("No signal");
     expect(guidanceOf(h.engine.state).route.stops).toHaveLength(3);
     h.engine.dispose();
   });
@@ -425,4 +425,194 @@ test("straightLeg fixture ends at its target", () => {
   const to = destinationPoint(ORIGIN, 33, 1234);
   const leg = straightLeg(ORIGIN, to, "t");
   expect(leg.end.lat).toBeCloseTo(to.lat, 6);
+});
+
+describe("route preview", () => {
+  test("preview routes without starting; Start guides the same Route", async () => {
+    const h = setup();
+    h.fixes.push({ ...ORIGIN, at: Date.now(), accuracyM: 5 });
+    await h.engine.preview(h.destination);
+    const state = h.engine.state;
+    if (state.kind !== "preview") throw new Error(state.kind);
+    expect(state.route.totalMeters).toBeCloseTo(1800, -1);
+    expect(state.route.via).toEqual([]);
+    // Nothing is cached and no Turn sound is due until the driver presses Start.
+    expect(h.store.get("vela.nav.route")).toBeUndefined();
+    expect(h.engine.recentDestinations()[0]?.name).toBe("Invented Cafe");
+
+    h.engine.startPreview();
+    const g = guidanceOf(h.engine.state);
+    expect(g.route.shape).toBe(state.route.shape);
+    expect(h.valhalla.routeRequests()).toHaveLength(1);
+    expect(h.store.get("vela.nav.route")).toBeDefined();
+    h.engine.dispose();
+  });
+
+  test("cancelPreview goes back to idle; startPreview outside preview does nothing", async () => {
+    const h = setup();
+    h.fixes.push({ ...ORIGIN, at: Date.now(), accuracyM: 5 });
+    h.engine.startPreview();
+    expect(h.engine.state.kind).toBe("idle");
+    await h.engine.preview(h.destination);
+    h.engine.cancelPreview();
+    expect(h.engine.state.kind).toBe("idle");
+    h.engine.startPreview();
+    expect(h.engine.state.kind).toBe("idle");
+    h.engine.dispose();
+  });
+
+  test("a preview without signal reports the error", async () => {
+    const h = setup();
+    h.fixes.push({ ...ORIGIN, at: Date.now(), accuracyM: 5 });
+    h.valhalla.behavior = "no-signal";
+    await h.engine.preview(h.destination);
+    expect(h.engine.state).toMatchObject({ kind: "error", message: expect.stringContaining("No signal") });
+    h.engine.dispose();
+  });
+});
+
+describe("stops on the way", () => {
+  const fuelAt = () => ({ name: "Invented Fuel", ...destinationPoint(ORIGIN, 45, 800) });
+  const foodAt = () => ({ name: "Invented Diner", ...destinationPoint(ORIGIN, 90, 600) });
+
+  test("added in preview, in order, before the Destination; removed again", async () => {
+    const h = setup();
+    h.fixes.push({ ...ORIGIN, at: Date.now(), accuracyM: 5 });
+    await h.engine.preview(h.destination);
+    await h.engine.addStop(fuelAt());
+    await h.engine.addStop(foodAt());
+    const s = h.engine.state;
+    if (s.kind !== "preview") throw new Error(s.kind);
+    expect(s.route.via.map((p) => p.name)).toEqual(["Invented Fuel", "Invented Diner"]);
+    expect(s.route.destination.name).toBe("Invented Cafe");
+    const last = h.valhalla.routeRequests().at(-1)?.body as { locations: { lat: number }[] };
+    expect(last.locations).toHaveLength(4);
+
+    await h.engine.removeStop(0);
+    const after = h.engine.state;
+    if (after.kind !== "preview") throw new Error(after.kind);
+    expect(after.route.via.map((p) => p.name)).toEqual(["Invented Diner"]);
+    await expect(h.engine.removeStop(5)).rejects.toThrow(RangeError);
+    h.engine.dispose();
+  });
+
+  test("while guiding: nextVia counts down to the stop, then moves on to the Destination", async () => {
+    const h = setup();
+    h.fixes.push({ ...ORIGIN, at: Date.now(), accuracyM: 5 });
+    await h.engine.start(h.destination);
+    expect(guidanceOf(h.engine.state).nextVia).toBeUndefined();
+    const fuel = fuelAt();
+    await h.engine.addStop(fuel);
+    const g = guidanceOf(h.engine.state);
+    expect(g.route.via).toEqual([fuel]);
+    expect(g.nextVia?.place).toEqual(fuel);
+    expect(g.nextVia?.metersTo).toBeCloseTo(800, -1);
+    expect(g.nextVia?.secTo).toBeCloseTo(800 / 15, 0);
+    expect(g.nextVia?.arriveAt).toBeGreaterThan(Date.now());
+
+    // Drive past the fuel stop: only the Destination is left.
+    const legs = h.valhalla.plan([
+      { lat: ORIGIN.lat, lon: ORIGIN.lng },
+      { lat: fuel.lat, lon: fuel.lng },
+    ]);
+    const [past] = traceAlong(legs[0]?.points ?? [], { speedMps: 15, startAt: Date.now(), fromMeters: 800, toMeters: 800 });
+    h.fixes.push(past as Fix);
+    expect(guidanceOf(h.engine.state).nextVia).toBeUndefined();
+    // The stop behind the car cannot be removed.
+    await expect(h.engine.removeStop(0)).rejects.toThrow("behind you");
+    h.engine.dispose();
+  });
+
+  test("removing a stop while guiding re-routes to the Destination", async () => {
+    const h = setup();
+    h.fixes.push({ ...ORIGIN, at: Date.now(), accuracyM: 5 });
+    await h.engine.start(h.destination);
+    await h.engine.addStop(fuelAt());
+    await h.engine.removeStop(0);
+    const g = guidanceOf(h.engine.state);
+    expect(g.route.via).toEqual([]);
+    expect(g.nextStop.street).toBe("Invented Cafe");
+    h.engine.dispose();
+  });
+});
+
+test("roundabout entries carry Valhalla's exit count", async () => {
+  const leg = buildLeg(
+    ORIGIN,
+    [
+      { headingDeg: 0, meters: 500, street: "Alpha Road", speedMps: 15, type: 1 },
+      { headingDeg: 45, meters: 100, street: "Ring", speedMps: 8, type: 26, exitCount: 3 },
+      { headingDeg: 90, meters: 400, street: "Delta Way", speedMps: 15, type: 27 },
+    ],
+    "Invented Park",
+  );
+  const h = setup({ leg });
+  h.fixes.push({ ...ORIGIN, at: Date.now(), accuracyM: 5 });
+  await h.engine.start({ name: "Invented Park", ...leg.end });
+  const stops = guidanceOf(h.engine.state).route.stops;
+  expect(stops.map((s) => [s.maneuver, s.exit])).toEqual([
+    ["roundabout", 3],
+    ["roundabout", undefined],
+    ["arrive", undefined],
+  ]);
+  h.engine.dispose();
+});
+
+describe("readouts", () => {
+  const NOON = Date.parse("2026-06-01T12:00:00Z");
+  const MIDNIGHT = Date.parse("2026-06-01T00:00:00Z");
+  /** On the Greenwich meridian, so UTC noon is local solar noon. */
+  const SPOT = { lat: 10, lng: 0 };
+
+  test("Daylight contrast follows the setting; auto uses the sun at the position", () => {
+    let t = NOON;
+    let daylight: "auto" | "on" | "off" = "auto";
+    const listeners = new Set<(s: { daylight: typeof daylight }) => void>();
+    const settings = {
+      get value() {
+        return { daylight };
+      },
+      subscribe(fn: (s: { daylight: typeof daylight }) => void) {
+        listeners.add(fn);
+        return () => listeners.delete(fn);
+      },
+    };
+    const fixes = new ManualFixSource();
+    const engine = createNavEngine({ config, fixes, store: new InMemoryStore(), network: new SwitchableNetwork(), now: () => t, settings });
+    fixes.push({ ...SPOT, at: t, accuracyM: 5 });
+    expect(engine.readouts.daylight).toBe(true);
+    t = MIDNIGHT;
+    fixes.push({ ...SPOT, at: t, accuracyM: 5 });
+    expect(engine.readouts.daylight).toBe(false);
+
+    const seen: boolean[] = [];
+    engine.subscribe((_, r) => seen.push(r.daylight));
+    daylight = "on";
+    for (const fn of listeners) fn({ daylight });
+    expect(engine.readouts.daylight).toBe(true);
+    t = NOON;
+    daylight = "off";
+    for (const fn of listeners) fn({ daylight });
+    expect(engine.readouts.daylight).toBe(false);
+    expect(seen).toEqual([false, true, false]);
+    engine.dispose();
+  });
+
+  test("fixAgeMs is absent before the first fix and grows until the next one", () => {
+    vi.useFakeTimers({ now: NOON });
+    try {
+      const fixes = new ManualFixSource();
+      const engine = createNavEngine({ config, fixes, store: new InMemoryStore(), network: new SwitchableNetwork() });
+      expect(engine.readouts.fixAgeMs).toBeUndefined();
+      fixes.push({ ...SPOT, at: Date.now(), accuracyM: 5 });
+      expect(engine.readouts.fixAgeMs).toBe(0);
+      vi.advanceTimersByTime(12_400);
+      expect(engine.readouts.fixAgeMs).toBe(12_000);
+      fixes.push({ ...SPOT, at: Date.now(), accuracyM: 5 });
+      expect(engine.readouts.fixAgeMs).toBe(0);
+      engine.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
