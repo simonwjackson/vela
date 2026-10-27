@@ -34,10 +34,17 @@ export function fit(app: HTMLElement): void {
   const listen = app.querySelector(".listen:not(.shelf)");
   const top = app.querySelector(".top");
   const answer = app.querySelector(".answer, .stage, .shelf.large");
+  const m = Number.parseFloat(getComputedStyle(app).getPropertyValue("--m")) || 24;
+  const crowded = () => !!top && !!answer && rect(answer).top < rect(top).bottom + m * 0.75;
   if (listen) {
     listen.removeAttribute("data-compact");
-    const m = Number.parseFloat(getComputedStyle(app).getPropertyValue("--m")) || 24;
-    if (top && answer && rect(answer).top < rect(top).bottom + m * 0.75) listen.setAttribute("data-compact", "");
+    if (crowded()) listen.setAttribute("data-compact", "");
+  }
+  // A stage that reaches up into the top row's space: the space around its bar yields first (16 to 8).
+  const stage = app.querySelector(".stage");
+  if (stage) {
+    stage.removeAttribute("data-compact");
+    if (answer === stage && crowded()) stage.setAttribute("data-compact", "");
   }
   // Cards with optional rows (the Where to card) drop them, last first, while the frame overflows.
   const optional = [...app.querySelectorAll("[data-optional]")].reverse();

@@ -234,7 +234,8 @@ button.chip::after { content: ""; position: absolute; top: -14px; bottom: -14px;
   border: 1px solid var(--edge); border-radius: var(--radius-l); padding: 18px; display: grid; gap: 16px; box-shadow: var(--shadow-card); }
 @media (prefers-reduced-motion: no-preference) { .listen, .where-card, .codriver { animation: swap-in var(--t-swap) var(--ease); } }
 
-/* Listening card */
+/* Listening card. The card's gap is the space above the bar and the same space below it, over the keys:
+   16, or 8 when the card's space yields on a short frame. The stage keeps 16 above and below. */
 .now { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: center; }
 .text { min-width: 0; }
 .art { width: var(--art); height: var(--art); border-radius: var(--radius-art); object-fit: cover; box-shadow: 0 0 0 1px var(--edge); }
@@ -259,7 +260,11 @@ button.chip::after { content: ""; position: absolute; top: -14px; bottom: -14px;
 .stage .art { width: var(--stageart); height: var(--stageart); border-radius: 12px; }
 .stage .title { font-size: var(--stagetitle); line-height: 1.2; letter-spacing: -.018em; margin-top: -.1em; }
 .stage .by { font-size: var(--fs-sub); margin-top: 6px; }
-.stage .bar { margin: 16px 0 4px; max-width: 420px; }
+/* A bar over the keys: 16 above it and 16 below it, as in the listening card. */
+.stage .bar { margin: 16px 0; max-width: 420px; }
+/* When the stage reaches up into the top row's space, fit() sets [data-compact]: the space yields to 8
+   above and below, as the card's does on a short frame. */
+.stage[data-compact] .bar { margin: 8px 0; }
 .stage .keys { justify-content: flex-start; margin-left: -16px; }
 
 /* ---- Shelf: the last item from each Source, one tap resumes it -------------------------- */
