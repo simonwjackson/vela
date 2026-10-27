@@ -252,16 +252,15 @@ button.chip::after { content: ""; position: absolute; top: -14px; bottom: -14px;
 }
 
 /* ---- Stage: Now playing large, in the answer slot only (no route) ------------------------ */
-/* The cover and the text share both edges: the title starts on the cover's top edge, the keys end on
-   its bottom edge. When the text is the taller (column flow), the cover hangs from its top.
+/* The cover and the text share a top edge: title, by-line, bar and keys are one group that hangs
+   from the cover's top, with any slack below the keys (never a gap inside the group).
    The title is --stagetitle, a step under --road: at rest it is not the answer to a driving question. */
 .stage { grid-area: answer; align-self: center; min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: calc(var(--m) * .75); align-items: start; }
 .stage .art { width: var(--stageart); height: var(--stageart); border-radius: 12px; }
-.stage > .text { align-self: stretch; display: flex; flex-direction: column; }
 .stage .title { font-size: var(--stagetitle); line-height: 1.2; letter-spacing: -.018em; margin-top: -.1em; }
-.stage .by { font-size: var(--fs-sub); margin: 6px 0 16px; }
-.stage .bar { flex: none; margin: auto 0 4px; max-width: 420px; }
-.stage .keys { justify-content: flex-start; margin: 0 0 0 -16px; }
+.stage .by { font-size: var(--fs-sub); margin-top: 6px; }
+.stage .bar { margin: 16px 0 4px; max-width: 420px; }
+.stage .keys { justify-content: flex-start; margin-left: -16px; }
 
 /* ---- Shelf: the last item from each Source, one tap resumes it -------------------------- */
 .app[data-flow="col"] .listen.shelf { grid-template-columns: 1fr; }
