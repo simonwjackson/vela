@@ -76,6 +76,10 @@ _Avoid_: Trip, directions
 One recorded drive, from setting off to stopping, whether or not it had a Route. The personal assistant recalls past Trips.
 _Avoid_: Drive, journey, ride
 
+**Range**:
+How far the car can still go on the fuel in its tank, estimated by Vela from the fuel level and recent consumption.
+_Avoid_: Distance to empty, DTE, fuel left
+
 ## Look
 
 **Light**:
