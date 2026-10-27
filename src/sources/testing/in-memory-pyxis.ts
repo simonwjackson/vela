@@ -160,7 +160,16 @@ export function createInMemoryPyxis(): InMemoryPyxis {
         }
       }
       case "source.search.run": {
-        const needle = String(payload.query).toLowerCase();
+        const needle = String(payload.query).trim().toLowerCase();
+        if (needle === "") {
+          return {
+            _tag: tag,
+            outcome: {
+              status: "unavailable",
+              value: { code: "source.invalidQuery", message: "search query cannot be empty", retryable: false },
+            },
+          };
+        }
         const tracks = albums.flatMap((album) =>
           album.tracks
             .filter((track) => track.title.toLowerCase().includes(needle))

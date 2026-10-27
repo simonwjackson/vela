@@ -677,6 +677,12 @@ export function createPyxisMusic(options: PyxisMusicOptions): PyxisMusicAdapter 
       return trackId === undefined ? undefined : itemFor(trackId);
     },
     async search(query) {
+      // The library opens with an empty query. Pyxis source search requires actual text;
+      // browsing must read the saved library instead of asking a source to search for nothing.
+      if (query.trim() === "") {
+        const library = await albums();
+        return library.flatMap((album) => album.tracks.map((track) => itemFor(track.id)));
+      }
       const outcome = await rpc.call("source.search.run", { query, limit: 25 }, await token());
       if (outcome.status === "noSources") return [];
       if (outcome.status !== "ready") throw new PyxisRpcError(outcome.value.message, outcome.value.retryable);

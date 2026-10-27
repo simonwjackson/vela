@@ -150,10 +150,11 @@ export function createComicsClient(options: { readonly origin: string; readonly 
         body: JSON.stringify({ _tag: tag, payload }),
         signal: AbortSignal.timeout(20_000),
       });
-    } catch (cause) {
-      throw new OssicleRpcError(`The books server is unreachable: ${cause instanceof Error ? cause.message : String(cause)}`, true);
+    } catch {
+      throw new OssicleRpcError("Books server unreachable", true);
     }
-    if (!response.ok) throw new OssicleRpcError(`The books server answered HTTP ${response.status}`, response.status >= 500);
+    if (response.status >= 500) throw new OssicleRpcError("Books server unreachable", true);
+    if (!response.ok) throw new OssicleRpcError(`The books server answered HTTP ${response.status}`, false);
     const body: unknown = await response.json().catch(() => undefined);
     if (!isRecord(body) || !isRecord(body.outcome) || typeof body.outcome.status !== "string") {
       throw new OssicleRpcError(`The books server answered '${tag}' with an invalid envelope`, false);

@@ -38,6 +38,23 @@ const sessionOf = (pyxis: ReturnType<typeof createInMemoryPyxis>) => {
 };
 
 describe("hosting a Pyxis session", () => {
+  test.each(["", "   "])("opening Music with query %j lists the saved library and can play it", async (query) => {
+    const context = setup();
+    try {
+      const items = await context.music.search(query);
+      expect(items.map((item) => item.id)).toEqual(["t-1", "t-2", "t-3"]);
+      expect(items[0]).toMatchObject({ source: "music", title: "Low Tide Overture", from: "Harbor Lights", durationSec: 200 });
+      const first = items[0];
+      if (first === undefined) throw new Error("library track missing");
+      await context.music.load(first);
+      await context.music.play();
+      expect(context.element.paused).toBe(false);
+      expect(sessionOf(context.pyxis).queue).toEqual(["t-1", "t-2", "t-3"]);
+    } finally {
+      context.music.dispose();
+    }
+  });
+
   test("claims a device, stores its token, says hello, then creates the session after welcome", async () => {
     const context = setup();
     await context.music.start();
