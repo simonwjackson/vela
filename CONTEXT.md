@@ -89,3 +89,7 @@ _Avoid_: Fallback colour, default theme
 **Daylight contrast**:
 The stronger-contrast form of the same look, on between sunrise and sunset at the car's position.
 _Avoid_: Day mode, light theme
+
+**Moment**:
+A screen the Co-driver composes for one situation, in the Look's own parts, with one line it speaks. It waits while the next Stop is close, and gives way to the usual screen when its situation has passed.
+_Avoid_: Card, popup, scene, widget
