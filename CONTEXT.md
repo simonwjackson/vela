@@ -35,7 +35,7 @@ The short sound that announces a Stop. Music gets quieter under it; Podcasts and
 _Avoid_: Chime, alert, voice prompt
 
 **Sound mode**:
-How Vela announces Stops: Sounds only (the default), or a Co-driver. It does not affect talking: the chosen Co-driver listens and answers in either mode.
+How Vela announces Stops: Sounds only (the default), or a Co-driver. It does not affect talking: the chosen Co-driver listens and answers in either mode. In Sounds only, a Moment the driver did not ask for appears without speaking.
 
 **Co-driver**:
 The driver's personal assistant in one of its car personalities, each with its own synthesized voice. It reads directions and route moments aloud, comments now and then, and talks with the driver when asked. It shares the assistant's memory.
