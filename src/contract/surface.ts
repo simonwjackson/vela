@@ -7,7 +7,9 @@
  * pushes context so the assistant can answer trip questions without a round trip.
  * JSON text frames only. Every message has `type`.
  */
+import type { EventReport, MomentCapabilities, MomentShow, UiProblem, MomentDismissBy } from "./moments";
 import type { ListenCommand, NowPlaying, SourceId } from "./listening";
+import type { WeatherKind } from "./weather";
 import type { Guidance, Place } from "./navigation";
 
 export const SURFACE_PROTOCOL_VERSION = 1;
@@ -45,9 +47,13 @@ export interface CarToolArgs {
 
 /** Vela → assistant. */
 export type SurfaceUp =
+  | ({ readonly type: "moment.capabilities" } & MomentCapabilities)
+  | EventReport
+  | { readonly type: "moment.problems"; readonly id: string; readonly problems: readonly UiProblem[] }
+  | { readonly type: "moment.dismissed"; readonly id: string; readonly by: MomentDismissBy }
   | { readonly type: "surface.hello"; readonly surface: "vela"; readonly version: number;
       readonly coDriver: CoDriverId; readonly tools: readonly ToolSpec[] }
-  | { readonly type: "context.update"; readonly trip?: TripContext; readonly nowPlaying?: NowPlaying }
+  | ContextUpdate
   | { readonly type: "tool.result"; readonly id: string; readonly ok: true; readonly value: unknown }
   | { readonly type: "tool.result"; readonly id: string; readonly ok: false; readonly error: string }
   /** A finished Trip, for the assistant's memory. Recall itself reads Traccar (ADR 0008). */
@@ -61,6 +67,8 @@ export type SurfaceUp =
 
 /** Assistant → Vela. */
 export type SurfaceDown =
+  | MomentShow
+  | { readonly type: "moment.dismiss"; readonly id: string }
   | { readonly type: "surface.welcome"; readonly version: number }
   | { readonly type: "tool.call"; readonly id: string; readonly name: CarToolName; readonly args: unknown }
   | { readonly type: "error"; readonly message: string }
@@ -86,3 +94,35 @@ export interface TripContext {
 
 /** Sound mode: how Stops are announced. Talking works in both modes. */
 export type SoundMode = { readonly kind: "sounds" } | { readonly kind: "co-driver"; readonly coDriver: CoDriverId };
+
+
+/** The live car values a Moment may bind. An absent field is unknown, not zero. */
+export interface CarContext {
+  readonly fuelPercent?: number;
+  readonly rangeKm?: number;
+  readonly ambientC?: number;
+  readonly mil?: boolean;
+  readonly dtcCount?: number;
+}
+export interface StopContext {
+  readonly name: string;
+  readonly kmAhead: number;
+  /** Estimated arrival, epoch milliseconds. */
+  readonly arriveAt: number;
+}
+export interface WeatherContext {
+  /** At most three intervals, relative to the car, including the current one when known. */
+  readonly stretches: readonly { readonly fromKm: number; readonly toKm: number; readonly kind: WeatherKind; readonly label: string }[];
+  readonly fetchedAt?: number;
+}
+/** Full snapshot, UTF-8 JSON under 2 KB; updates coalesce to at most one per 10 seconds. */
+export interface ContextUpdate {
+  readonly type: "context.update";
+  readonly soundMode?: SoundMode;
+  readonly trip?: TripContext;
+  readonly nowPlaying?: NowPlaying;
+  readonly car?: CarContext;
+  /** At most three stops on the way, in route order. Empty means none remain. */
+  readonly stops?: readonly StopContext[];
+  readonly weather?: WeatherContext;
+}

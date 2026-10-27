@@ -1,0 +1,1918 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "Screen": {
+      "$ref": "#/$defs/Screen"
+    },
+    "NoChange": {
+      "$ref": "#/$defs/NoChange"
+    },
+    "Details": {
+      "$ref": "#/$defs/Details"
+    },
+    "Lead": {
+      "$ref": "#/$defs/Lead"
+    },
+    "Optional": {
+      "$ref": "#/$defs/Optional"
+    },
+    "Stack": {
+      "$ref": "#/$defs/Stack"
+    },
+    "Split": {
+      "$ref": "#/$defs/Split"
+    },
+    "Row": {
+      "$ref": "#/$defs/Row"
+    },
+    "Columns": {
+      "$ref": "#/$defs/Columns"
+    },
+    "Card": {
+      "$ref": "#/$defs/Card"
+    },
+    "Frame": {
+      "$ref": "#/$defs/Frame"
+    },
+    "Value": {
+      "$ref": "#/$defs/Value"
+    },
+    "Name": {
+      "$ref": "#/$defs/Name"
+    },
+    "Label": {
+      "$ref": "#/$defs/Label"
+    },
+    "Glyph": {
+      "$ref": "#/$defs/Glyph"
+    },
+    "Bar": {
+      "$ref": "#/$defs/Bar"
+    },
+    "Sequence": {
+      "$ref": "#/$defs/Sequence"
+    },
+    "Art": {
+      "$ref": "#/$defs/Art"
+    },
+    "Divider": {
+      "$ref": "#/$defs/Divider"
+    },
+    "Hero": {
+      "$ref": "#/$defs/Hero"
+    },
+    "Quiet": {
+      "$ref": "#/$defs/Quiet"
+    },
+    "NowPlaying": {
+      "$ref": "#/$defs/NowPlaying"
+    },
+    "Listening": {
+      "$ref": "#/$defs/Listening"
+    },
+    "Shelf": {
+      "$ref": "#/$defs/Shelf"
+    },
+    "WhereTo": {
+      "$ref": "#/$defs/WhereTo"
+    },
+    "CoDriver": {
+      "$ref": "#/$defs/CoDriver"
+    },
+    "TripRow": {
+      "$ref": "#/$defs/TripRow"
+    },
+    "Sheet": {
+      "$ref": "#/$defs/Sheet"
+    },
+    "Text": {
+      "$ref": "#/$defs/Text"
+    },
+    "Fact": {
+      "$ref": "#/$defs/Fact"
+    },
+    "Facts": {
+      "$ref": "#/$defs/Facts"
+    },
+    "Notice": {
+      "$ref": "#/$defs/Notice"
+    },
+    "List": {
+      "$ref": "#/$defs/List"
+    },
+    "ListRow": {
+      "$ref": "#/$defs/ListRow"
+    },
+    "Button": {
+      "$ref": "#/$defs/Button"
+    },
+    "Actions": {
+      "$ref": "#/$defs/Actions"
+    }
+  },
+  "required": [
+    "Screen",
+    "NoChange",
+    "Details",
+    "Lead",
+    "Optional",
+    "Stack",
+    "Split",
+    "Row",
+    "Columns",
+    "Card",
+    "Frame",
+    "Value",
+    "Name",
+    "Label",
+    "Glyph",
+    "Bar",
+    "Sequence",
+    "Art",
+    "Divider",
+    "Hero",
+    "Quiet",
+    "NowPlaying",
+    "Listening",
+    "Shelf",
+    "WhereTo",
+    "CoDriver",
+    "TripRow",
+    "Sheet",
+    "Text",
+    "Fact",
+    "Facts",
+    "Notice",
+    "List",
+    "ListRow",
+    "Button",
+    "Actions"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "Screen": {
+      "type": "object",
+      "properties": {
+        "blocks": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Value"
+              },
+              {
+                "$ref": "#/$defs/Name"
+              },
+              {
+                "$ref": "#/$defs/Label"
+              },
+              {
+                "$ref": "#/$defs/Glyph"
+              },
+              {
+                "$ref": "#/$defs/Bar"
+              },
+              {
+                "$ref": "#/$defs/Sequence"
+              },
+              {
+                "$ref": "#/$defs/Art"
+              },
+              {
+                "$ref": "#/$defs/Divider"
+              },
+              {
+                "$ref": "#/$defs/Text"
+              },
+              {
+                "$ref": "#/$defs/Fact"
+              },
+              {
+                "$ref": "#/$defs/Facts"
+              },
+              {
+                "$ref": "#/$defs/Notice"
+              },
+              {
+                "$ref": "#/$defs/List"
+              },
+              {
+                "$ref": "#/$defs/Actions"
+              },
+              {
+                "$ref": "#/$defs/Hero"
+              },
+              {
+                "$ref": "#/$defs/Quiet"
+              },
+              {
+                "$ref": "#/$defs/NowPlaying"
+              },
+              {
+                "$ref": "#/$defs/Listening"
+              },
+              {
+                "$ref": "#/$defs/Shelf"
+              },
+              {
+                "$ref": "#/$defs/WhereTo"
+              },
+              {
+                "$ref": "#/$defs/CoDriver"
+              },
+              {
+                "$ref": "#/$defs/TripRow"
+              },
+              {
+                "$ref": "#/$defs/Row"
+              },
+              {
+                "$ref": "#/$defs/Card"
+              },
+              {
+                "$ref": "#/$defs/Stack"
+              },
+              {
+                "$ref": "#/$defs/Columns"
+              },
+              {
+                "$ref": "#/$defs/Lead"
+              },
+              {
+                "$ref": "#/$defs/Optional"
+              },
+              {
+                "$ref": "#/$defs/Split"
+              },
+              {
+                "$ref": "#/$defs/Frame"
+              },
+              {
+                "$ref": "#/$defs/Details"
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "blocks"
+      ],
+      "additionalProperties": false,
+      "description": "A Moment: blocks top to bottom (one Lead, at most two supporting items, an optional Details, then the base row: TripRow, or Shelf with no route). Vela adds the top row (with the chip and the ✕) and Talk. What the co-driver says, when it shows and how long it stays are in the message, not here."
+    },
+    "Value": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "enum": [
+            "trip.left",
+            "trip.distance",
+            "trip.eta",
+            "next.distance",
+            "stop.next.in",
+            "stop.next.eta",
+            "stops.left",
+            "playback.left",
+            "playback.spare",
+            "car.range",
+            "range.short",
+            "car.fuel",
+            "car.ambient",
+            "car.coolant",
+            "car.voltage",
+            "trip.driven",
+            "trip.time",
+            "trip.avg",
+            "weather.change.in",
+            "weather.rain.in",
+            "weather.rain.length",
+            "weather.rain.at"
+          ]
+        },
+        "tier": {
+          "type": "string",
+          "enum": [
+            "secondary",
+            "tertiary",
+            "caption"
+          ]
+        }
+      },
+      "required": [
+        "key"
+      ],
+      "additionalProperties": false,
+      "description": "A live figure with its unit, bound by key: Value(\"car.range\") draws \"38 km\". weather.change.in is the distance to the next forecast change; weather.rain.in, weather.rain.length and weather.rain.at give the distance, length and estimated arrival time of rain. In the Lead it is the screen's one large figure; elsewhere tier secondary (road size, the default) or tertiary (body size)."
+    },
+    "Name": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "enum": [
+            "dest",
+            "next.road",
+            "road.now",
+            "stop.next",
+            "media.now",
+            "media.by",
+            "car.codes",
+            "weather.now",
+            "weather.next"
+          ]
+        },
+        "tier": {
+          "type": "string",
+          "enum": [
+            "secondary",
+            "tertiary",
+            "caption"
+          ]
+        }
+      },
+      "required": [
+        "key"
+      ],
+      "additionalProperties": false,
+      "description": "A live name, bound by key: a place, a road, a title or the car's fault codes. Name(\"stop.next\") draws \"Larch Pharmacy\". weather.now and weather.next name the current and next forecast conditions. Tier as Label."
+    },
+    "Label": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "tier": {
+          "type": "string",
+          "enum": [
+            "secondary",
+            "tertiary",
+            "caption"
+          ]
+        },
+        "muted": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "additionalProperties": false,
+      "description": "A few of your own words right after a figure whose meaning neither its glyph nor the context gives, for example \"fuel range\" after Value(\"car.range\"). Never above a figure, never a heading: the glyph is the label. muted draws it one grey tier down."
+    },
+    "Glyph": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": [
+            "next.turn",
+            "search",
+            "home",
+            "work",
+            "recent",
+            "flag",
+            "pin",
+            "alert",
+            "check",
+            "chevron",
+            "plus",
+            "locate",
+            "nosignal",
+            "music",
+            "podcast",
+            "book",
+            "fuel",
+            "food",
+            "rest",
+            "bubble",
+            "trip",
+            "compass",
+            "reroute",
+            "download",
+            "retry",
+            "sound",
+            "bell",
+            "car",
+            "engine",
+            "thermo",
+            "battery"
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false,
+      "description": "A glyph at the size of the line it sits in (in a Row). \"next.turn\" is the next maneuver's arrow, bound."
+    },
+    "Bar": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "enum": [
+            "trip",
+            "playback",
+            "range",
+            "fuel"
+          ]
+        }
+      },
+      "required": [
+        "key"
+      ],
+      "additionalProperties": false,
+      "description": "Progress, always left to right, 2 px, bound: trip (how far through the trip; the accent, with a tick at each stop), playback (what plays), range (how far the fuel reaches, as a share of the distance left), fuel (the tank's level)."
+    },
+    "Sequence": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "enum": [
+            "route.stops",
+            "weather.stretches",
+            "route.weather"
+          ]
+        }
+      },
+      "required": [
+        "key"
+      ],
+      "additionalProperties": false,
+      "description": "A bound route sequence, left to right on one line: route.stops gives the stops ahead; weather.stretches (also route.weather) gives the forecast stretches in the next 60 km, with each condition and the distance to its start. Weather is unavailable without a current forecast. Labels that do not fit say how many more."
+    },
+    "Art": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false,
+      "description": "The cover of what plays. Large when it is the Lead, small elsewhere."
+    },
+    "Divider": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false,
+      "description": "A hairline between two groups inside a Card, Stack or Columns. Never across the screen, never first or last."
+    },
+    "Text": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "muted": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "additionalProperties": false,
+      "description": "One or two plain sentences, for a reason or a suggestion. muted for secondary detail."
+    },
+    "Fact": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string",
+          "enum": [
+            "trip.left",
+            "trip.distance",
+            "trip.eta",
+            "next.distance",
+            "stop.next.in",
+            "stop.next.eta",
+            "stops.left",
+            "playback.left",
+            "playback.spare",
+            "car.range",
+            "range.short",
+            "car.fuel",
+            "car.ambient",
+            "car.coolant",
+            "car.voltage",
+            "trip.driven",
+            "trip.time",
+            "trip.avg",
+            "weather.change.in",
+            "weather.rain.in",
+            "weather.rain.length",
+            "weather.rain.at",
+            "dest",
+            "next.road",
+            "road.now",
+            "stop.next",
+            "media.now",
+            "media.by",
+            "car.codes",
+            "weather.now",
+            "weather.next"
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "additionalProperties": false,
+      "description": "One label and its live value, inline: Fact(\"Arrive\", \"trip.eta\")."
+    },
+    "Facts": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Fact"
+          }
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "additionalProperties": false,
+      "description": "One line of 1 to 4 Facts that wraps when narrow."
+    },
+    "Notice": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "sub": {
+          "type": "string"
+        },
+        "glyph": {
+          "type": "string",
+          "enum": [
+            "next.turn",
+            "search",
+            "home",
+            "work",
+            "recent",
+            "flag",
+            "pin",
+            "alert",
+            "check",
+            "chevron",
+            "plus",
+            "locate",
+            "nosignal",
+            "music",
+            "podcast",
+            "book",
+            "fuel",
+            "food",
+            "rest",
+            "bubble",
+            "trip",
+            "compass",
+            "reroute",
+            "download",
+            "retry",
+            "sound",
+            "bell",
+            "car",
+            "engine",
+            "thermo",
+            "battery"
+          ]
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "additionalProperties": false,
+      "description": "A glyph, a short title and an optional sub line: news or a problem with its fix. Never coloured; the glyph carries it."
+    },
+    "List": {
+      "type": "object",
+      "properties": {
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ListRow"
+          }
+        }
+      },
+      "required": [
+        "rows"
+      ],
+      "additionalProperties": false,
+      "description": "1 to 4 rows, no dividers. More rows than fit scroll, with the cut-off row showing."
+    },
+    "ListRow": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "sub": {
+          "type": "string"
+        },
+        "glyph": {
+          "type": "string",
+          "enum": [
+            "next.turn",
+            "search",
+            "home",
+            "work",
+            "recent",
+            "flag",
+            "pin",
+            "alert",
+            "check",
+            "chevron",
+            "plus",
+            "locate",
+            "nosignal",
+            "music",
+            "podcast",
+            "book",
+            "fuel",
+            "food",
+            "rest",
+            "bubble",
+            "trip",
+            "compass",
+            "reroute",
+            "download",
+            "retry",
+            "sound",
+            "bell",
+            "car",
+            "engine",
+            "thermo",
+            "battery"
+          ]
+        },
+        "action": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OpenSheet"
+            },
+            {
+              "$ref": "#/$defs/FindStop"
+            },
+            {
+              "$ref": "#/$defs/Resume"
+            },
+            {
+              "$ref": "#/$defs/ConnectCar"
+            },
+            {
+              "$ref": "#/$defs/Dismiss"
+            }
+          ]
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "additionalProperties": false,
+      "description": "A list row with your own words: title, optional sub line and glyph, and an optional action."
+    },
+    "OpenSheet": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "OpenSheet"
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "sheet": {
+              "type": "string",
+              "enum": [
+                "route",
+                "library",
+                "where",
+                "add-stop"
+              ]
+            }
+          },
+          "required": [
+            "sheet"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "type",
+        "params"
+      ],
+      "additionalProperties": false
+    },
+    "FindStop": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "FindStop"
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "fuel",
+                "food",
+                "rest"
+              ]
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "type",
+        "params"
+      ],
+      "additionalProperties": false
+    },
+    "Resume": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "Resume"
+        },
+        "params": {
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "string",
+              "enum": [
+                "music",
+                "podcasts",
+                "books"
+              ]
+            }
+          },
+          "required": [
+            "source"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "type",
+        "params"
+      ],
+      "additionalProperties": false
+    },
+    "ConnectCar": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "ConnectCar"
+        },
+        "params": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "type",
+        "params"
+      ],
+      "additionalProperties": false
+    },
+    "Dismiss": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "Dismiss"
+        },
+        "params": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "type",
+        "params"
+      ],
+      "additionalProperties": false
+    },
+    "Actions": {
+      "type": "object",
+      "properties": {
+        "buttons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Button"
+          }
+        }
+      },
+      "required": [
+        "buttons"
+      ],
+      "additionalProperties": false,
+      "description": "A row of 1 to 3 Buttons."
+    },
+    "Button": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "action": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OpenSheet"
+            },
+            {
+              "$ref": "#/$defs/FindStop"
+            },
+            {
+              "$ref": "#/$defs/Resume"
+            },
+            {
+              "$ref": "#/$defs/ConnectCar"
+            },
+            {
+              "$ref": "#/$defs/Dismiss"
+            }
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "primary",
+            "secondary",
+            "quiet"
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "action"
+      ],
+      "additionalProperties": false,
+      "description": "A 56 px button. kind primary is the one main action of its surface (at most one per surface); secondary (default) is a plain choice; quiet is a dismiss or a minor choice. Labels say exactly what happens, in 1 to 3 words."
+    },
+    "Hero": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string",
+          "enum": [
+            "nav.next",
+            "trip.left"
+          ]
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "additionalProperties": false,
+      "description": "Vela's turn answer, whole: \"nav.next\" is the next turn as Vela answers it while guiding (arrow, distance, road; \"Now\"; the time left on a long leg; \"Arrived\"); \"trip.left\" is the time left with the next turn under it. Use it in the Lead when the turn is the answer."
+    },
+    "Quiet": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "sub": {
+          "type": "string"
+        },
+        "glyph": {
+          "type": "string",
+          "enum": [
+            "next.turn",
+            "search",
+            "home",
+            "work",
+            "recent",
+            "flag",
+            "pin",
+            "alert",
+            "check",
+            "chevron",
+            "plus",
+            "locate",
+            "nosignal",
+            "music",
+            "podcast",
+            "book",
+            "fuel",
+            "food",
+            "rest",
+            "bubble",
+            "trip",
+            "compass",
+            "reroute",
+            "download",
+            "retry",
+            "sound",
+            "bell",
+            "car",
+            "engine",
+            "thermo",
+            "battery"
+          ]
+        },
+        "tone": {
+          "type": "string",
+          "enum": [
+            "default",
+            "warn"
+          ]
+        },
+        "actions": {
+          "$ref": "#/$defs/Actions"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "additionalProperties": false,
+      "description": "A quiet answer: a glyph and one short sentence at road size in grey, an optional sub line and Actions. tone warn only when guidance is less reliable."
+    },
+    "NowPlaying": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false,
+      "description": "What plays, large: cover, title, show, position and keys. Bound. Only with no route."
+    },
+    "Listening": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false,
+      "description": "The listening card: cover, title, by-line, position and keys of what plays. Bound."
+    },
+    "Shelf": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false,
+      "description": "The last item from Music, Podcasts and Books, one tap to resume each. Bound. Large rows in the Lead, a card elsewhere, a row with Talk as the last block."
+    },
+    "WhereTo": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false,
+      "description": "The Where to? field with up to 3 saved and recent places. Bound."
+    },
+    "CoDriver": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "actions": {
+          "$ref": "#/$defs/Actions"
+        }
+      },
+      "additionalProperties": false,
+      "description": "The co-driver speaking: with no text, the live conversation; with text, your own 1 or 2 short sentences, with optional Actions. A card."
+    },
+    "TripRow": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false,
+      "description": "Vela's trip row, whole: time left (or the next stop), the trip bar, the arrival. Bound. As the last block it also holds Talk."
+    },
+    "Row": {
+      "type": "object",
+      "properties": {
+        "children": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Value"
+              },
+              {
+                "$ref": "#/$defs/Name"
+              },
+              {
+                "$ref": "#/$defs/Label"
+              },
+              {
+                "$ref": "#/$defs/Glyph"
+              },
+              {
+                "$ref": "#/$defs/Bar"
+              },
+              {
+                "$ref": "#/$defs/Sequence"
+              },
+              {
+                "$ref": "#/$defs/Art"
+              },
+              {
+                "$ref": "#/$defs/Divider"
+              },
+              {
+                "$ref": "#/$defs/Text"
+              },
+              {
+                "$ref": "#/$defs/Fact"
+              },
+              {
+                "$ref": "#/$defs/Facts"
+              },
+              {
+                "$ref": "#/$defs/Notice"
+              },
+              {
+                "$ref": "#/$defs/List"
+              },
+              {
+                "$ref": "#/$defs/Actions"
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "children"
+      ],
+      "additionalProperties": false,
+      "description": "Parts side by side on one line, wrapping when narrow: a Glyph with a Value, a Value with its Label, a Bar with a Fact."
+    },
+    "Card": {
+      "type": "object",
+      "properties": {
+        "children": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Value"
+              },
+              {
+                "$ref": "#/$defs/Name"
+              },
+              {
+                "$ref": "#/$defs/Label"
+              },
+              {
+                "$ref": "#/$defs/Glyph"
+              },
+              {
+                "$ref": "#/$defs/Bar"
+              },
+              {
+                "$ref": "#/$defs/Sequence"
+              },
+              {
+                "$ref": "#/$defs/Art"
+              },
+              {
+                "$ref": "#/$defs/Divider"
+              },
+              {
+                "$ref": "#/$defs/Text"
+              },
+              {
+                "$ref": "#/$defs/Fact"
+              },
+              {
+                "$ref": "#/$defs/Facts"
+              },
+              {
+                "$ref": "#/$defs/Notice"
+              },
+              {
+                "$ref": "#/$defs/List"
+              },
+              {
+                "$ref": "#/$defs/Actions"
+              },
+              {
+                "$ref": "#/$defs/Row"
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "children"
+      ],
+      "additionalProperties": false,
+      "description": "A surface (the listening card's) around 1 to 4 parts, for things the driver can touch. No title: the content says what it is."
+    },
+    "Stack": {
+      "type": "object",
+      "properties": {
+        "children": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Value"
+              },
+              {
+                "$ref": "#/$defs/Name"
+              },
+              {
+                "$ref": "#/$defs/Label"
+              },
+              {
+                "$ref": "#/$defs/Glyph"
+              },
+              {
+                "$ref": "#/$defs/Bar"
+              },
+              {
+                "$ref": "#/$defs/Sequence"
+              },
+              {
+                "$ref": "#/$defs/Art"
+              },
+              {
+                "$ref": "#/$defs/Divider"
+              },
+              {
+                "$ref": "#/$defs/Text"
+              },
+              {
+                "$ref": "#/$defs/Fact"
+              },
+              {
+                "$ref": "#/$defs/Facts"
+              },
+              {
+                "$ref": "#/$defs/Notice"
+              },
+              {
+                "$ref": "#/$defs/List"
+              },
+              {
+                "$ref": "#/$defs/Actions"
+              },
+              {
+                "$ref": "#/$defs/Hero"
+              },
+              {
+                "$ref": "#/$defs/Quiet"
+              },
+              {
+                "$ref": "#/$defs/NowPlaying"
+              },
+              {
+                "$ref": "#/$defs/Listening"
+              },
+              {
+                "$ref": "#/$defs/Shelf"
+              },
+              {
+                "$ref": "#/$defs/WhereTo"
+              },
+              {
+                "$ref": "#/$defs/CoDriver"
+              },
+              {
+                "$ref": "#/$defs/TripRow"
+              },
+              {
+                "$ref": "#/$defs/Row"
+              },
+              {
+                "$ref": "#/$defs/Card"
+              },
+              {
+                "$ref": "#/$defs/Optional"
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "children"
+      ],
+      "additionalProperties": false,
+      "description": "Parts top to bottom as one group, with Signal's spacing."
+    },
+    "Optional": {
+      "type": "object",
+      "properties": {
+        "child": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Value"
+            },
+            {
+              "$ref": "#/$defs/Name"
+            },
+            {
+              "$ref": "#/$defs/Label"
+            },
+            {
+              "$ref": "#/$defs/Glyph"
+            },
+            {
+              "$ref": "#/$defs/Bar"
+            },
+            {
+              "$ref": "#/$defs/Sequence"
+            },
+            {
+              "$ref": "#/$defs/Art"
+            },
+            {
+              "$ref": "#/$defs/Divider"
+            },
+            {
+              "$ref": "#/$defs/Text"
+            },
+            {
+              "$ref": "#/$defs/Fact"
+            },
+            {
+              "$ref": "#/$defs/Facts"
+            },
+            {
+              "$ref": "#/$defs/Notice"
+            },
+            {
+              "$ref": "#/$defs/List"
+            },
+            {
+              "$ref": "#/$defs/Actions"
+            },
+            {
+              "$ref": "#/$defs/Hero"
+            },
+            {
+              "$ref": "#/$defs/Quiet"
+            },
+            {
+              "$ref": "#/$defs/NowPlaying"
+            },
+            {
+              "$ref": "#/$defs/Listening"
+            },
+            {
+              "$ref": "#/$defs/Shelf"
+            },
+            {
+              "$ref": "#/$defs/WhereTo"
+            },
+            {
+              "$ref": "#/$defs/CoDriver"
+            },
+            {
+              "$ref": "#/$defs/TripRow"
+            },
+            {
+              "$ref": "#/$defs/Row"
+            },
+            {
+              "$ref": "#/$defs/Card"
+            }
+          ]
+        }
+      },
+      "required": [
+        "child"
+      ],
+      "additionalProperties": false,
+      "description": "A part that may be left out when the screen is too short for it (the last Optional goes first), in the Screen, a Stack, Columns or a Split. The driver can still ask Talk for it."
+    },
+    "Columns": {
+      "type": "object",
+      "properties": {
+        "children": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Value"
+              },
+              {
+                "$ref": "#/$defs/Name"
+              },
+              {
+                "$ref": "#/$defs/Label"
+              },
+              {
+                "$ref": "#/$defs/Glyph"
+              },
+              {
+                "$ref": "#/$defs/Bar"
+              },
+              {
+                "$ref": "#/$defs/Sequence"
+              },
+              {
+                "$ref": "#/$defs/Art"
+              },
+              {
+                "$ref": "#/$defs/Divider"
+              },
+              {
+                "$ref": "#/$defs/Text"
+              },
+              {
+                "$ref": "#/$defs/Fact"
+              },
+              {
+                "$ref": "#/$defs/Facts"
+              },
+              {
+                "$ref": "#/$defs/Notice"
+              },
+              {
+                "$ref": "#/$defs/List"
+              },
+              {
+                "$ref": "#/$defs/Actions"
+              },
+              {
+                "$ref": "#/$defs/Hero"
+              },
+              {
+                "$ref": "#/$defs/Quiet"
+              },
+              {
+                "$ref": "#/$defs/NowPlaying"
+              },
+              {
+                "$ref": "#/$defs/Listening"
+              },
+              {
+                "$ref": "#/$defs/Shelf"
+              },
+              {
+                "$ref": "#/$defs/WhereTo"
+              },
+              {
+                "$ref": "#/$defs/CoDriver"
+              },
+              {
+                "$ref": "#/$defs/TripRow"
+              },
+              {
+                "$ref": "#/$defs/Row"
+              },
+              {
+                "$ref": "#/$defs/Card"
+              },
+              {
+                "$ref": "#/$defs/Optional"
+              },
+              {
+                "$ref": "#/$defs/Stack"
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "children"
+      ],
+      "additionalProperties": false,
+      "description": "2 to 4 equal columns, for a comparison (two places, now and later). They wrap to fewer per line when narrow."
+    },
+    "Lead": {
+      "type": "object",
+      "properties": {
+        "child": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Value"
+            },
+            {
+              "$ref": "#/$defs/Name"
+            },
+            {
+              "$ref": "#/$defs/Label"
+            },
+            {
+              "$ref": "#/$defs/Glyph"
+            },
+            {
+              "$ref": "#/$defs/Bar"
+            },
+            {
+              "$ref": "#/$defs/Sequence"
+            },
+            {
+              "$ref": "#/$defs/Art"
+            },
+            {
+              "$ref": "#/$defs/Divider"
+            },
+            {
+              "$ref": "#/$defs/Text"
+            },
+            {
+              "$ref": "#/$defs/Fact"
+            },
+            {
+              "$ref": "#/$defs/Facts"
+            },
+            {
+              "$ref": "#/$defs/Notice"
+            },
+            {
+              "$ref": "#/$defs/List"
+            },
+            {
+              "$ref": "#/$defs/Actions"
+            },
+            {
+              "$ref": "#/$defs/Hero"
+            },
+            {
+              "$ref": "#/$defs/Quiet"
+            },
+            {
+              "$ref": "#/$defs/NowPlaying"
+            },
+            {
+              "$ref": "#/$defs/Listening"
+            },
+            {
+              "$ref": "#/$defs/Shelf"
+            },
+            {
+              "$ref": "#/$defs/WhereTo"
+            },
+            {
+              "$ref": "#/$defs/CoDriver"
+            },
+            {
+              "$ref": "#/$defs/TripRow"
+            },
+            {
+              "$ref": "#/$defs/Row"
+            },
+            {
+              "$ref": "#/$defs/Card"
+            },
+            {
+              "$ref": "#/$defs/Stack"
+            },
+            {
+              "$ref": "#/$defs/Columns"
+            }
+          ]
+        }
+      },
+      "required": [
+        "child"
+      ],
+      "additionalProperties": false,
+      "description": "The one thing the driver reads first: exactly one per screen. A Value in it is the screen's large figure; a Label or Name in it is road size. Its own short label (at most 4 words, after the figure, for example \"fuel range\") says what the figure is when no glyph does; it is part of the Lead, not of the word budget. It may hold a Row or Stack (a Glyph and a Value, then a label or a Bar), a Hero, Quiet, NowPlaying, Shelf or Art."
+    },
+    "Split": {
+      "type": "object",
+      "properties": {
+        "first": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Value"
+            },
+            {
+              "$ref": "#/$defs/Name"
+            },
+            {
+              "$ref": "#/$defs/Label"
+            },
+            {
+              "$ref": "#/$defs/Glyph"
+            },
+            {
+              "$ref": "#/$defs/Bar"
+            },
+            {
+              "$ref": "#/$defs/Sequence"
+            },
+            {
+              "$ref": "#/$defs/Art"
+            },
+            {
+              "$ref": "#/$defs/Divider"
+            },
+            {
+              "$ref": "#/$defs/Text"
+            },
+            {
+              "$ref": "#/$defs/Fact"
+            },
+            {
+              "$ref": "#/$defs/Facts"
+            },
+            {
+              "$ref": "#/$defs/Notice"
+            },
+            {
+              "$ref": "#/$defs/List"
+            },
+            {
+              "$ref": "#/$defs/Actions"
+            },
+            {
+              "$ref": "#/$defs/Hero"
+            },
+            {
+              "$ref": "#/$defs/Quiet"
+            },
+            {
+              "$ref": "#/$defs/NowPlaying"
+            },
+            {
+              "$ref": "#/$defs/Listening"
+            },
+            {
+              "$ref": "#/$defs/Shelf"
+            },
+            {
+              "$ref": "#/$defs/WhereTo"
+            },
+            {
+              "$ref": "#/$defs/CoDriver"
+            },
+            {
+              "$ref": "#/$defs/TripRow"
+            },
+            {
+              "$ref": "#/$defs/Row"
+            },
+            {
+              "$ref": "#/$defs/Card"
+            },
+            {
+              "$ref": "#/$defs/Stack"
+            },
+            {
+              "$ref": "#/$defs/Columns"
+            },
+            {
+              "$ref": "#/$defs/Lead"
+            },
+            {
+              "$ref": "#/$defs/Optional"
+            }
+          ]
+        },
+        "second": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Value"
+            },
+            {
+              "$ref": "#/$defs/Name"
+            },
+            {
+              "$ref": "#/$defs/Label"
+            },
+            {
+              "$ref": "#/$defs/Glyph"
+            },
+            {
+              "$ref": "#/$defs/Bar"
+            },
+            {
+              "$ref": "#/$defs/Sequence"
+            },
+            {
+              "$ref": "#/$defs/Art"
+            },
+            {
+              "$ref": "#/$defs/Divider"
+            },
+            {
+              "$ref": "#/$defs/Text"
+            },
+            {
+              "$ref": "#/$defs/Fact"
+            },
+            {
+              "$ref": "#/$defs/Facts"
+            },
+            {
+              "$ref": "#/$defs/Notice"
+            },
+            {
+              "$ref": "#/$defs/List"
+            },
+            {
+              "$ref": "#/$defs/Actions"
+            },
+            {
+              "$ref": "#/$defs/Hero"
+            },
+            {
+              "$ref": "#/$defs/Quiet"
+            },
+            {
+              "$ref": "#/$defs/NowPlaying"
+            },
+            {
+              "$ref": "#/$defs/Listening"
+            },
+            {
+              "$ref": "#/$defs/Shelf"
+            },
+            {
+              "$ref": "#/$defs/WhereTo"
+            },
+            {
+              "$ref": "#/$defs/CoDriver"
+            },
+            {
+              "$ref": "#/$defs/TripRow"
+            },
+            {
+              "$ref": "#/$defs/Row"
+            },
+            {
+              "$ref": "#/$defs/Card"
+            },
+            {
+              "$ref": "#/$defs/Stack"
+            },
+            {
+              "$ref": "#/$defs/Columns"
+            },
+            {
+              "$ref": "#/$defs/Lead"
+            },
+            {
+              "$ref": "#/$defs/Optional"
+            }
+          ]
+        }
+      },
+      "required": [
+        "first",
+        "second"
+      ],
+      "additionalProperties": false,
+      "description": "Two groups on one centre line: side by side on a wide screen (the first takes about 60%), one above the other on a tall one. The first leads."
+    },
+    "Frame": {
+      "type": "object",
+      "properties": {
+        "primary": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Hero"
+            },
+            {
+              "$ref": "#/$defs/Quiet"
+            },
+            {
+              "$ref": "#/$defs/NowPlaying"
+            },
+            {
+              "$ref": "#/$defs/Shelf"
+            }
+          ]
+        },
+        "secondary": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Listening"
+            },
+            {
+              "$ref": "#/$defs/WhereTo"
+            },
+            {
+              "$ref": "#/$defs/CoDriver"
+            },
+            {
+              "$ref": "#/$defs/Shelf"
+            },
+            {
+              "$ref": "#/$defs/Sheet"
+            }
+          ]
+        },
+        "base": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TripRow"
+            },
+            {
+              "$ref": "#/$defs/Shelf"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "description": "Vela's own screen for this moment, whole, as Vela draws it without a Moment: primary is the answer (Hero, Quiet, NowPlaying or Shelf), secondary the card beside it (Listening, WhereTo, CoDriver, Shelf or Sheet), base the row under both (TripRow or Shelf). Use it alone; NoChange says the same more simply."
+    },
+    "Sheet": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "route"
+          ]
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false,
+      "description": "The route sheet: every stop, Add stop and End route. Only as Frame's secondary."
+    },
+    "Details": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Value"
+              },
+              {
+                "$ref": "#/$defs/Name"
+              },
+              {
+                "$ref": "#/$defs/Label"
+              },
+              {
+                "$ref": "#/$defs/Glyph"
+              },
+              {
+                "$ref": "#/$defs/Bar"
+              },
+              {
+                "$ref": "#/$defs/Sequence"
+              },
+              {
+                "$ref": "#/$defs/Art"
+              },
+              {
+                "$ref": "#/$defs/Divider"
+              },
+              {
+                "$ref": "#/$defs/Text"
+              },
+              {
+                "$ref": "#/$defs/Fact"
+              },
+              {
+                "$ref": "#/$defs/Facts"
+              },
+              {
+                "$ref": "#/$defs/Notice"
+              },
+              {
+                "$ref": "#/$defs/List"
+              },
+              {
+                "$ref": "#/$defs/Actions"
+              },
+              {
+                "$ref": "#/$defs/Hero"
+              },
+              {
+                "$ref": "#/$defs/Quiet"
+              },
+              {
+                "$ref": "#/$defs/NowPlaying"
+              },
+              {
+                "$ref": "#/$defs/Listening"
+              },
+              {
+                "$ref": "#/$defs/Shelf"
+              },
+              {
+                "$ref": "#/$defs/WhereTo"
+              },
+              {
+                "$ref": "#/$defs/CoDriver"
+              },
+              {
+                "$ref": "#/$defs/TripRow"
+              },
+              {
+                "$ref": "#/$defs/Row"
+              },
+              {
+                "$ref": "#/$defs/Card"
+              },
+              {
+                "$ref": "#/$defs/Stack"
+              }
+            ]
+          }
+        },
+        "open": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "label",
+        "children"
+      ],
+      "additionalProperties": false,
+      "description": "More, on request: collapsed to one quiet button (label, 1 or 2 words, for example \"Car\"); a tap or the driver's voice opens it, and it then takes the supporting items' place beside the Lead. Only for at least two facts the driver might plausibly ask for next. A block of the Screen, written as its own statement. open is set by Vela, not by you."
+    },
+    "NoChange": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false,
+      "description": "Vela keeps its own screen: the message's chip (if any) shows in the top row and the co-driver says say. Prefer this whenever Vela's screen already answers."
+    }
+  },
+  "actions": {
+    "OpenSheet": {
+      "description": "Open one of Vela's sheets: route (every stop, Add stop, End route), library (Music, Podcasts, Books), where (search a destination) or add-stop.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "sheet": {
+            "type": "string",
+            "enum": [
+              "route",
+              "library",
+              "where",
+              "add-stop"
+            ]
+          }
+        },
+        "required": [
+          "sheet"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "FindStop": {
+      "description": "Search for a stop of this kind on the way (the Add a stop sheet, searching): fuel, food or rest.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "fuel",
+              "food",
+              "rest"
+            ]
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "Resume": {
+      "description": "Resume the last item of a Source: music, podcasts or books.",
+      "params": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "music",
+              "podcasts",
+              "books"
+            ]
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "ConnectCar": {
+      "description": "Connect to the car's OBD adapter (asks the driver once).",
+      "params": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    },
+    "Dismiss": {
+      "description": "Close this Moment now (as the ✕ does), for a quiet Not now.",
+      "params": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      }
+    }
+  }
+}

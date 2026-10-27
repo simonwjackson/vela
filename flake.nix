@@ -12,7 +12,11 @@
       velaVersion = self.shortRev or self.dirtyShortRev or "dev";
     in {
       devShells = forAll (pkgs: {
-        default = pkgs.mkShell { packages = [ pkgs.nodejs_22 pkgs.just ]; };
+        default = pkgs.mkShell {
+          packages = [ pkgs.nodejs_22 pkgs.just ];
+          OPENUI_TELEMETRY_DISABLED = "1";
+          DO_NOT_TRACK = "1";
+        };
       });
 
       # The built static app. The hash is filled in once the dependency set settles.
@@ -21,7 +25,9 @@
           pname = "vela";
           version = "0-${velaVersion}";
           src = self;
-          npmDepsHash = "sha256-4NL0vQm+2v5baGp9jAjB/phMuQrCcKhEPDPtfypL/d0=";
+          npmDepsHash = "sha256-v74mhL/iXdfBRVrP4hZt90x6S33KKO39lb34gtNFU0M=";
+          env.OPENUI_TELEMETRY_DISABLED = "1";
+          env.DO_NOT_TRACK = "1";
           env.VELA_VERSION = velaVersion;
           installPhase = "cp -r dist $out";
         };

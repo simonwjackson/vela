@@ -252,3 +252,16 @@ describe("TripsReporter", () => {
     }
   });
 });
+
+test("queued positions keep their original car readings across reload", async () => {
+  const store = new InMemoryStore(); const network = new SwitchableNetwork(); network.up = false;
+  const server = new TraccarServer(); let fuel = 50;
+  const reporter = createTripsReporter({ config, store, network, fetcher: server.fetch, carReadings: () => ({ at: T0, fuelPercent: fuel, dtcs: ["P0133"] }) });
+  for (const fix of drive({ parkedSec: 0, drivingSec: 3 })) reporter.record(fix);
+  expect(reporter.queued).toBe(3); reporter.dispose(); fuel = 20;
+  const reloaded = createTripsReporter({ config, store, network, fetcher: server.fetch, carReadings: () => ({ at: T0, fuelPercent: fuel }) });
+  await reloaded.flush();
+  expect(server.received).toHaveLength(3);
+  for (const url of server.received) { expect(url.searchParams.get("fuel")).toBe("50"); expect(url.searchParams.get("dtcs")).toBe("P0133"); }
+  reloaded.dispose();
+});

@@ -45,6 +45,14 @@ export interface Route {
   readonly fetchedAt: number;
 }
 
+export interface ViaGuidance {
+  readonly place: Place;
+  readonly metersTo: number;
+  readonly secTo: number;
+  /** Epoch milliseconds. */
+  readonly arriveAt: number;
+}
+
 /** Everything a driving view needs, recomputed on every GPS fix. */
 export interface Guidance {
   readonly route: Route;
@@ -65,13 +73,9 @@ export interface Guidance {
   /** True while there is no signal; guidance continues from the cached Route. */
   readonly offline: boolean;
   /** The next stop on the way not yet reached; absent when only the Destination is left. */
-  readonly nextVia?: {
-    readonly place: Place;
-    readonly metersTo: number;
-    readonly secTo: number;
-    /** Epoch milliseconds. */
-    readonly arriveAt: number;
-  };
+  readonly nextVia?: ViaGuidance;
+  /** Next three stops on the way, using the same route timeline as nextVia. */
+  readonly nextVias?: readonly ViaGuidance[];
 }
 
 export type NavState =

@@ -55,15 +55,13 @@ export function computeGuidance(input: GuidanceInput): Guidance {
   const secLeft = Math.max(0, route.totalSec - nowSec);
   const metersLeft = Math.max(0, route.totalMeters - along);
   const viaIndex = passedViaCount(route, along);
-  const viaStop = viaArrivals(route)[viaIndex];
-  const viaPlace = route.via[viaIndex];
-  const nextVia =
-    viaStop && viaPlace
-      ? (() => {
-          const secTo = Math.max(0, secondsAt(planned.timeline, viaStop.routeMeters) - nowSec);
-          return { place: viaPlace, metersTo: Math.max(0, viaStop.routeMeters - along), secTo, arriveAt: now + secTo * 1000 };
-        })()
-      : undefined;
+  const nextVias = viaArrivals(route).slice(viaIndex, viaIndex + 3).flatMap((stop, offset) => {
+    const place = route.via[viaIndex + offset];
+    if (!place) return [];
+    const secTo = Math.max(0, secondsAt(planned.timeline, stop.routeMeters) - nowSec);
+    return [{ place, metersTo: Math.max(0, stop.routeMeters - along), secTo, arriveAt: now + secTo * 1000 }];
+  });
+  const nextVia = nextVias[0];
 
   return {
     route,
@@ -79,6 +77,7 @@ export function computeGuidance(input: GuidanceInput): Guidance {
     offRoute: input.offRoute,
     offline: input.offline,
     ...(nextVia ? { nextVia } : {}),
+    nextVias,
   };
 }
 

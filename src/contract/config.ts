@@ -3,6 +3,9 @@
  * (the fleet flake) writes it. Nothing personal is ever a constant in this repository.
  */
 export interface VelaConfig {
+  readonly weatherUrl?: string;
+  /** No default: unknown tank size means no Range. */
+  readonly tankLitres?: number;
   /** Origins of the driver's own services. Exact origins, no trailing slash. */
   readonly origins: {
     readonly pyxis: string;
@@ -34,8 +37,9 @@ export interface VelaConfig {
 }
 
 /** A VelaConfig as loadConfig returns it: every default filled, so engines never restate one. */
-export type LoadedConfig = VelaConfig & Required<Pick<VelaConfig, "assistantSurfacePath" | "talkModel">>;
+export type LoadedConfig = VelaConfig & Required<Pick<VelaConfig, "assistantSurfacePath" | "talkModel" | "weatherUrl">>;
 
+export const DEFAULT_WEATHER_URL = "https://api.open-meteo.com/v1/forecast";
 export const DEFAULT_TURN_SOUND_LEAD_MS = 250;
 export const DEFAULT_ASSISTANT_SURFACE_PATH = "/surface";
 /** The model name voice-gateway's README documents for the personal assistant. */
@@ -57,7 +61,16 @@ export async function loadConfig(fetcher: typeof fetch = fetch): Promise<LoadedC
   if (typeof talkModel !== "string" || !/^[A-Za-z0-9._:-]{1,100}$/.test(talkModel)) {
     throw new Error("Vela config `talkModel` must be a voice-gateway model name, such as assistant");
   }
+  const weatherUrl = raw.weatherUrl ?? DEFAULT_WEATHER_URL;
+  try {
+    if (typeof weatherUrl !== "string") throw new Error("not text");
+    const url = new URL(weatherUrl);
+    if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) throw new Error("not HTTP");
+  } catch { throw new Error("Vela config `weatherUrl` must be an HTTP URL without credentials"); }
+  if (raw.tankLitres !== undefined && (!Number.isFinite(raw.tankLitres) || raw.tankLitres <= 0)) throw new Error("Vela config `tankLitres` must be positive");
   return {
+    weatherUrl,
+    ...(raw.tankLitres !== undefined ? { tankLitres: raw.tankLitres } : {}),
     origins: raw.origins,
     photonUrl: raw.photonUrl ?? "https://photon.komoot.io",
     traccarDeviceId: raw.traccarDeviceId ?? "vela",

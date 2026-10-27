@@ -61,7 +61,8 @@ export function fit(app: HTMLElement): void {
   peek(app);
 }
 
-function overflows(app: HTMLElement): boolean {
+/** The frame scrolls, or two of its parts overlap. */
+export function overflows(app: HTMLElement): boolean {
   if (app.scrollHeight > app.clientHeight + 1) return true;
   const parts = [...app.children].filter((c) => getComputedStyle(c).position !== "absolute" && !c.matches(".sheet, .plan-kb"));
   return parts.some((a, i) =>

@@ -9,7 +9,7 @@ import { InMemorySocketServer } from "./testing/in-memory-socket";
 
 const settle = () => new Promise((r) => setTimeout(r, 0));
 
-function setup() {
+function setup(fetcher?: typeof fetch) {
   const server = new InMemorySocketServer();
   const mic = new ScriptedMic();
   const speech = new ScriptedSpeech();
@@ -27,6 +27,7 @@ function setup() {
   };
   const permissions: string[] = [];
   const talk = createTalk({
+    ...(fetcher ? { fetcher } : {}),
     origin: "https://voice.test",
     model: "assistant",
     connect: server.connect,
@@ -361,5 +362,14 @@ test("tapping the current Co-driver on an open link keeps the link", () => {
   expect(h.surface.restarts).toBe(0);
   expect(h.server.latest.types()).toEqual(["session.update"]);
   expect(h.talk.state).toEqual({ kind: "idle" });
+  h.talk.dispose();
+});
+
+
+test("Talk press cancels event Moment speech and releases its hold", async () => {
+  const h = setup((async () => new Response(new Int16Array(2400).buffer)) as typeof fetch);
+  h.server.latest.accept(); h.talk.speak("Rain ahead"); await settle();
+  expect(h.holds).toEqual({ taken: 1, released: 0 }); expect(h.speech.queuedMs).toBe(100);
+  h.talk.press(); expect(h.holds).toEqual({ taken: 1, released: 1 }); expect(h.speech.queuedMs).toBe(0);
   h.talk.dispose();
 });

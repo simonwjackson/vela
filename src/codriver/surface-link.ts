@@ -4,12 +4,15 @@
  * - Opens `wss://<origins.assistant><assistantSurfacePath>` (default `/surface`) and sends `surface.hello` with the chosen Co-driver
  *   and the car tools. One Co-driver per link: choosing another reconnects.
  * - Car tools run only when the assistant sends `tool.call`; every call gets one `tool.result`.
- * - `context.update` goes out on open, at once when the trip or Now playing changes in kind
- *   (destination, next instruction, item, transport), and otherwise at most every
- *   CONTEXT_EVERY_MS while numbers (distance, time) move.
+ * - `context.update` goes out on open, then coalesces meaningful changes at most once per
+ *   CONTEXT_MIN_MS. Ordinary guidance numbers refresh every CONTEXT_EVERY_MS. Every frame
+ *   stays under 2 KB, including the next three stops and forecast stretches.
  * - Reconnects with backoff, but never after close code REPLACED (4000): another Vela took the
  *   link, and two would fight. `restart()` takes it back on the driver's request.
  */
+import { createMomentChannel } from "../moments/channel";
+import { contextSnapshot, contextChanged, tripContext, CONTEXT_EVERY_MS, CONTEXT_MIN_MS } from "./context";
+import type { MomentCapabilities, Moments, EventReport, ContextUpdate, CarLink, Weather } from "../contract";
 import {
   type CarToolName,
   type CoDriverId,
@@ -26,18 +29,16 @@ import {
   type SurfaceDown,
   type SurfaceUp,
   type ToolSpec,
-  type TripContext,
 } from "../contract";
 import {
   type LinkStatus,
   type ReconnectingSocket,
   type Timers,
   type WebSocketFactory,
+  browserTimers,
   createReconnectingSocket,
   socketUrl,
 } from "./socket";
-
-export const CONTEXT_EVERY_MS = 30_000;
 
 const SOURCES: readonly SourceId[] = ["music", "podcasts", "books"];
 const COMMANDS = ["play", "pause", "toggle", "back", "forward", "seek", "resume", "playItem"] as const;
@@ -98,6 +99,10 @@ export const CAR_TOOLS: readonly ToolSpec[] = [
 ];
 
 export interface SurfaceLinkOptions {
+  readonly capabilities?: MomentCapabilities;
+  readonly car?: CarLink;
+  readonly weather?: Weather;
+  readonly soundMode?: () => import("../contract").SoundMode;
   readonly origin: string;
   /** `VelaConfig.assistantSurfacePath`, starting with "/". */
   readonly path: string;
@@ -112,6 +117,10 @@ export interface SurfaceLinkOptions {
 }
 
 export interface SurfaceLink {
+  readonly moments: Moments;
+  report(event: EventReport): boolean;
+  setCapabilities(capabilities: MomentCapabilities): void;
+  refreshContext(): void;
   readonly status: LinkStatus;
   /** True after the assistant closed the link with REPLACED, until `restart`. */
   readonly replaced: boolean;
@@ -165,24 +174,21 @@ function guidanceOf(state: NavState): Guidance | undefined {
   return state.kind === "guiding" || state.kind === "rerouting" ? state.guidance : undefined;
 }
 
-export function tripContext(state: NavState): TripContext | undefined {
-  const g = guidanceOf(state);
-  if (!g) return undefined;
-  return {
-    destination: g.route.destination,
-    guidance: { metersLeft: g.metersLeft, secLeft: g.secLeft, arriveAt: g.arriveAt, metersToNext: g.metersToNext, progress: g.progress },
-    nextInstruction: g.nextStop.instruction,
-  };
-}
 
 export function createSurfaceLink(options: SurfaceLinkOptions): SurfaceLink {
   const { nav, listening } = options;
   const now = options.now ?? Date.now;
   const listeners = new Set<(status: LinkStatus) => void>();
+  let capabilities = options.capabilities;
   let replaced = false;
-  let lastContextKey: string | undefined;
+  const timers = options.timers ?? browserTimers;
+  let lastContext: ContextUpdate | undefined;
+  let contextOpen = false;
+  let contextTimer: unknown;
   let lastContextAt = Number.NEGATIVE_INFINITY;
   let send: (message: SurfaceUp) => boolean = () => false;
+
+  const channel = createMomentChannel((message) => send(message));
 
   const socket: ReconnectingSocket = createReconnectingSocket({
     url: () => socketUrl(options.origin, options.path),
@@ -197,13 +203,16 @@ export function createSurfaceLink(options: SurfaceLinkOptions): SurfaceLink {
         coDriver: options.coDriver(),
         tools: CAR_TOOLS,
       });
-      lastContextKey = undefined;
+      if (capabilities) send({ type: "moment.capabilities", ...capabilities });
+      lastContext = undefined; lastContextAt = Number.NEGATIVE_INFINITY; contextOpen = true;
       pushContext();
     },
     onMessage: (data) => void onMessage(data),
     onStatus(status) {
       if (status.kind === "stopped" && status.code === SURFACE_CLOSE.REPLACED) replaced = true;
-      if (status.kind !== "open") send = () => false;
+      if (status.kind !== "open") {
+        contextOpen = false; clearContextTimer(); send = () => false;
+      }
       for (const fn of [...listeners]) fn(status);
     },
     ...(options.timers ? { timers: options.timers } : {}),
@@ -211,15 +220,26 @@ export function createSurfaceLink(options: SurfaceLinkOptions): SurfaceLink {
     ...(options.maxBackoffMs !== undefined ? { maxBackoffMs: options.maxBackoffMs } : {}),
   });
 
+  function clearContextTimer(): void {
+    if (contextTimer !== undefined) timers.clearTimeout(contextTimer);
+    contextTimer = undefined;
+  }
   function pushContext(): void {
-    const trip = tripContext(nav.state);
-    const nowPlaying: NowPlaying | undefined = listening.nowPlaying;
-    const key = JSON.stringify([trip?.destination, trip?.nextInstruction, nowPlaying?.item.id, nowPlaying?.transport]);
+    if (!contextOpen) return;
+    const message = contextSnapshot({ state: nav.state, nowPlaying: listening.nowPlaying,
+      soundMode: options.soundMode?.(), car: options.car, weather: options.weather });
     const t = now();
-    if (key === lastContextKey && t - lastContextAt < CONTEXT_EVERY_MS) return;
-    const sent = send({ type: "context.update", ...(trip ? { trip } : {}), ...(nowPlaying ? { nowPlaying } : {}) });
-    if (!sent) return;
-    lastContextKey = key;
+    if (lastContext && !contextChanged(lastContext, message) && t - lastContextAt < CONTEXT_EVERY_MS) {
+      clearContextTimer(); return;
+    }
+    const wait = CONTEXT_MIN_MS - (t - lastContextAt);
+    if (wait > 0) {
+      if (contextTimer === undefined) contextTimer = timers.setTimeout(() => { contextTimer = undefined; pushContext(); }, wait);
+      return;
+    }
+    clearContextTimer();
+    if (!send(message)) return;
+    lastContext = message;
     lastContextAt = t;
   }
 
@@ -230,6 +250,8 @@ export function createSurfaceLink(options: SurfaceLinkOptions): SurfaceLink {
     } catch {
       return;
     }
+    if (!message || typeof message !== "object") return;
+    channel.receive(message);
     if (message.type === "tool.call") {
       const { id } = message;
       try {
@@ -307,8 +329,14 @@ export function createSurfaceLink(options: SurfaceLinkOptions): SurfaceLink {
 
   const offNav = nav.subscribe(() => pushContext());
   const offListening = listening.subscribe(() => pushContext());
+  const offCar = options.car?.subscribe(pushContext);
+  const offWeather = options.weather?.subscribe(pushContext);
 
   return {
+    moments: channel.moments,
+    refreshContext: pushContext,
+    report: (event) => capabilities?.enabled !== false && send(event),
+    setCapabilities(next) { capabilities = next; send({ type: "moment.capabilities", ...next }); },
     get status() {
       return socket.status;
     },
@@ -321,8 +349,9 @@ export function createSurfaceLink(options: SurfaceLinkOptions): SurfaceLink {
       socket.restart();
     },
     close() {
+      clearContextTimer();
       offNav();
-      offListening();
+      offListening(); offCar?.(); offWeather?.();
       socket.close();
     },
     subscribe(fn) {

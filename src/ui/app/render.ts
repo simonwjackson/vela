@@ -22,7 +22,7 @@ import {
   talkBtn,
   timeLeft,
 } from "../view/parts";
-import type { AnswerView, BaseView, CardView, DownloadsView, NowView, PlaceRow, Screen, SettingsUpdate, SheetView, ShelfEntry, TalkView, TopView } from "./screen";
+import type { AnswerView, BaseView, CarView, CardView, DownloadsView, NowView, PlaceRow, Screen, SettingsUpdate, SheetView, ShelfEntry, TalkView, TopView } from "./screen";
 import { SOURCES, STOP_KINDS } from "./screen";
 
 export function renderScreen(s: Screen, opts: { keyboard: number }): HTMLElement[] {
@@ -472,6 +472,7 @@ function renderSheet(sv: SheetView, ctx: SheetCtx): HTMLElement {
             setRow({ icon: "bubble", title: "Co-driver", sub: sv.coDriver, action: "codriver-open" }),
             setRow({ icon: "sound", title: "Sound mode", sub: sv.soundMode, action: "sound-mode-open" }),
             setSwitch({ icon: "wake", title: "Hey Vela", sub: sv.wakeSub, on: sv.wake, action: "wake-toggle" }),
+            setSwitch({ icon: "screens", title: "Moments", sub: "Screens from your co-driver", on: sv.moments, action: "moments-toggle" }),
             h(
               "div",
               { class: "row talk-row" },
@@ -498,6 +499,7 @@ function renderSheet(sv: SheetView, ctx: SheetCtx): HTMLElement {
             setRow({ icon: "download", title: "Downloads", sub: sv.downloads, action: "downloads-open" }),
             setSwitch({ icon: "wifi", title: "Wi-Fi only", sub: "Download only on Wi-Fi", on: sv.wifiOnly, action: "wifi-only" }),
             setRow({ icon: "trip", title: "Trips", sub: sv.trips, action: "trips-open" }),
+            ...carRows(sv.car),
             versionRow(sv.version, sv.update),
           ),
         ],
@@ -594,6 +596,33 @@ function versionRow(version: string | undefined, update: SettingsUpdate): HTMLEl
   );
 }
 
+/** The car: its link (with Connect while it can), then the readings while connected (ADR 0012). */
+function carRows(c: CarView): HTMLElement[] {
+  // Reconnecting is Vela's own retry: it shows here only, calmly; the chip is for a needed tap.
+  const sub =
+    c.state === "connected" ? "Connected" : c.state === "connecting" ? "Connecting" : c.state === "reconnecting" ? "Reconnecting" : c.state === "connect" ? "Not connected" : "Needs Chrome with Bluetooth";
+  const link = h(
+    "div",
+    { class: "row talk-row talk-car", role: c.state === "connecting" || c.state === "reconnecting" ? "status" : undefined },
+    g("car", "span", "lead-icon"),
+    h("span", { class: "text" }, h("b", null, "Car"), h("span", null, sub)),
+    c.state === "connect" ? btn({ label: "Connect", kind: "quiet", action: "car-connect", aria: "Connect the car" }) : null,
+  );
+  const reading = (r: CarView["rows"][number]) =>
+    h("div", { class: "row talk-row talk-reading" }, g(r.icon, "span", "lead-icon"), h("span", { class: "text" }, h("b", null, r.title)), h("span", { class: `meta num${r.value === undefined ? " talk-none" : ""}` }, r.value ?? "No reading"));
+  const e = c.engine;
+  const engine = e
+    ? h(
+        "div",
+        { class: `row talk-row talk-reading${e.on ? " talk-engine-on" : ""}` },
+        g("engine", "span", "lead-icon"),
+        h("span", { class: "text" }, h("b", null, "Check engine"), h("span", null, e.codes.length ? e.codes.join(", ") : "No fault codes")),
+        h("span", { class: `meta${e.on === undefined ? " talk-none" : ""}` }, e.on === undefined ? "No reading" : e.on ? "On" : "Off"),
+      )
+    : null;
+  return [link, ...c.rows.map(reading), ...(engine ? [engine] : [])];
+}
+
 function setRow(o: { icon: Parameters<typeof g>[0]; title: string; sub?: string; action: string }): HTMLElement {
   return h(
     "button",
@@ -683,3 +712,6 @@ function library(sv: Extract<SheetView, { kind: "library" }>): HTMLElement {
     body: [f, list],
   });
 }
+
+/** The parts one by one, for the Moment renderer (src/ui/moment), which composes them itself. */
+export { answer as renderAnswer, base as renderBase, card as renderCard, listenCard as renderListenCard, renderSheet, stage as renderStage, top as renderTop };

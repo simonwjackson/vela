@@ -1,4 +1,7 @@
 /** App-level status, and everything the shell hands to the UI's `mount(root, deps)`. */
+import type { Weather } from "./weather";
+import type { Moments } from "./moments";
+import type { CarLink } from "./car";
 import type { Downloads } from "../sw/downloads";
 import type { CoDriver, WakeWord } from "./codriver";
 import type { Listening } from "./listening";
@@ -32,6 +35,7 @@ export interface AppStatus {
   subscribe(fn: () => void): () => void;
 }
 export interface AppDeps {
+  moments: Moments; car: CarLink; weather: Weather;
   nav: NavEngine; trips: TripsReporter; listening: Listening; downloads: Downloads; // Downloads: the existing type from src/sw/downloads
   coDriver: CoDriver; wake: WakeWord; settings: SettingsStore; app: AppStatus;
 }

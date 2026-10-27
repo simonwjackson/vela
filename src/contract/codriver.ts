@@ -19,6 +19,7 @@ export interface CoDriver {
   readonly state: TalkState;
   readonly current: CoDriverInfo;
   list(): readonly CoDriverInfo[];
+  speak(text: string): void;
   press(): void; release(): void; cancel(): void;
   choose(id: CoDriverId): void;
   subscribe(fn: (state: TalkState) => void): () => void;

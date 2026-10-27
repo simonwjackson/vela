@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#08090a">
+<meta name="color-scheme" content="dark">
+<title>Vela dev: Moments</title>
+<link rel="icon" href="data:,">
+<link rel="preload" href="/fonts/Inter.ttf" as="font" type="font/ttf" crossorigin>
+<style>
+  /* The dev page's own chrome only; the frame renders with the app's stylesheet. */
+  body.md-dev { overflow: auto; color: #8a8f98; font: 14px/1.5 Inter, sans-serif; }
+  body.md-dev #app { height: auto; min-height: 100%; display: flex; flex-direction: column; }
+  .md-chrome { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; padding: 12px 16px; border-bottom: 1px solid rgb(255 255 255 / .07); }
+  .md-chrome label { display: inline-flex; gap: 8px; align-items: center; min-height: 44px; }
+  .md-chrome select, .md-life button { font: inherit; color: #f7f8f8; background: #0f1011; border: 1px solid rgb(255 255 255 / .14); border-radius: 8px; min-height: 44px; padding: 0 10px; cursor: pointer; }
+  .md-chrome :focus-visible, .md-life button:focus-visible { outline: 2px solid #7c80ff; outline-offset: 2px; }
+  .md-life button:disabled { color: #5c6068; cursor: default; }
+  .md-main { display: flex; flex-wrap: wrap; gap: 16px; padding: 16px; align-items: flex-start; }
+  .md-stage { flex: 1 1 480px; min-width: 0; position: relative; }
+  .md-framebox { transform-origin: 0 0; box-shadow: 0 0 0 1px rgb(255 255 255 / .1); }
+  .md-side { flex: 1 1 320px; max-width: 64ch; min-width: 0; display: grid; gap: 12px; }
+  .md-life { display: flex; flex-wrap: wrap; gap: 8px; }
+  .md-code { margin: 0; padding: 12px; background: #0f1011; border-radius: 8px; color: #f7f8f8; font: 13px/1.55 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .md-phase { color: #f7f8f8; }
+  .md-say { margin: 0; color: #f7f8f8; font-size: 16px; }
+  body.md-bare #app { height: 100%; }
+  body.md-bare .md-framebox { width: 100%; height: 100%; box-shadow: none; }
+</style>
+</head>
+<body>
+<!-- Dev only: a Moment over a stand-in SurfaceLink, through every phase. ?scene=&phase=&stress=1&daylight=1&bare=1. Not in the production build. -->
+<div id="app"></div>
+<script type="module" src="/src/ui/dev/moments-page.ts"></script>
+</body>
+</html>

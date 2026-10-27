@@ -41,6 +41,7 @@ import {
   createReconnectingSocket,
   socketUrl,
 } from "./socket";
+import { createMomentSpeech } from "./moment-speech";
 import type { SpeechOutput } from "./speaker";
 import type { SurfaceLink } from "./surface-link";
 
@@ -50,6 +51,7 @@ export const ANSWER_TIMEOUT_MS = 20_000;
 
 export interface TalkOptions {
   /** voice-gateway's origin, `origins.voice`. */
+  readonly fetcher?: typeof fetch;
   readonly origin: string;
   /** `VelaConfig.talkModel`: the gateway's model name for the personal assistant. */
   readonly model: string;
@@ -112,6 +114,11 @@ export function createTalk(options: TalkOptions): CoDriverClient {
   let coDriver = settings.value.coDriver;
   let last = "";
   let state: TalkState = { kind: "idle" };
+
+  const momentSpeech = createMomentSpeech({
+    origin: options.origin, voice: () => coDriver, online: () => network.online(),
+    speech, hold: () => listening.holdForTalk(), ...(options.fetcher ? { fetcher: options.fetcher } : {}),
+  });
 
   const socket: ReconnectingSocket = createReconnectingSocket({
     url: () => `${socketUrl(options.origin, "/v1/realtime")}?model=${encodeURIComponent(options.model)}`,
@@ -380,7 +387,9 @@ export function createTalk(options: TalkOptions): CoDriverClient {
     list() {
       return DEFAULT_CO_DRIVERS.some((c) => c.id === coDriver) ? DEFAULT_CO_DRIVERS : [...DEFAULT_CO_DRIVERS, coDriverInfo(coDriver)];
     },
+    speak(text) { if (turn === "none") momentSpeech.speak(text); },
     press() {
+      momentSpeech.stop();
       // Another Vela took the link: show that (the UI offers "Use here"); never take it back silently.
       if (surface.replaced) {
         emit();
@@ -398,6 +407,7 @@ export function createTalk(options: TalkOptions): CoDriverClient {
       closeTurn();
     },
     cancel() {
+      momentSpeech.stop();
       abandon();
     },
     choose(id: CoDriverId) {
@@ -411,6 +421,7 @@ export function createTalk(options: TalkOptions): CoDriverClient {
       }
     },
     wake(before = []) {
+      momentSpeech.stop();
       if (turn !== "none" || compute().kind !== "idle" || link.kind !== "open") return;
       openTurn("wake", before);
     },
@@ -425,6 +436,7 @@ export function createTalk(options: TalkOptions): CoDriverClient {
       emit();
     },
     dispose() {
+      momentSpeech.dispose();
       endTurn();
       offFrames();
       offDrained();

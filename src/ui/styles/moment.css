@@ -1,0 +1,138 @@
+/* Moments: Signal's composition grammar (src/ui/moment). Tokens only, from system.css: the five type
+   sizes (--hero, --road, 16, 14, 13), the three grey tiers, the one accent, the hairline, the
+   spacing steps and --m. No new sizes, colours or radii. The organisms inside (answer, cards,
+   rows, buttons, facts, notes) are Signal's own.
+
+   Components and their class names
+   ---------------------------------------------------------------------------------------
+   Free Moment   .app.m-free > .top + .m-body + (.trip | .shelf-row | .talk-base)
+   Dismiss       .top .chip-slot > .m-close (20 drawn, 56 hit)
+   Lead          .m-lead > .m-big (.step) | .m-row | .m-stack | an organism
+   Tiers         .m-value.t-secondary|t-tertiary|t-caption  .m-label.t-…(.muted)
+   Primitives    .m-stack  .m-row  .m-split > .m-split-in  .m-columns > .m-col  .m-card  .m-optional[data-dropped]
+   Atoms         .m-glyph  .m-progress  .m-seq  .m-text  .m-facts > .m-fact  .m-divider  .m-list
+   Details       .m-details[data-open] > .btn | .m-details-body
+   --------------------------------------------------------------------------------------- */
+
+/* ---- The dismiss: leading the top row, drawn 20 in a 56 hit, the row stays 28 tall ---------- */
+.top .m-close { margin: -14px -6px -14px -18px; color: var(--t2); }
+.chip-slot:has(> .m-close) { align-items: center; gap: 12px; }
+
+/* ---- A free Moment: top row, body, base ----------------------------------------------------------
+   The body is one column. Free space goes around it: centred in row flow, above it in column flow
+   (the app's rule: the free space goes above the answer). Its blocks keep their height, so a body
+   taller than its room is measured, and reflow() yields before the gate refuses. */
+/* biome-ignore lint/correctness/noInvalidGridAreas: one column per row is consistent; the rule miscounts single-name rows */
+.app.m-free[data-flow] { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: "top" "body" "trip"; row-gap: 0;
+  --gap: calc(var(--m) * .75); --gap-s: calc(var(--m) * .5); }
+.m-body { grid-area: body; min-height: 0; min-width: 0; display: flex; flex-direction: column; justify-content: safe center; gap: var(--gap);
+  padding-top: calc(var(--m) * .5); overflow: clip; overflow-clip-margin: 6px; }
+.app.m-free[data-flow="col"] .m-body { justify-content: safe end; }
+.app.m-free :is(.m-body, .m-stack, .m-lead, .m-col, .m-split-in, .m-optional) > * { flex: none; align-self: stretch; margin: 0; min-width: 0; }
+.app.m-free .answer { padding-bottom: 0; }
+/* Signal's parts name their frame area (.card → listen, .answer → answer); in a Moment they take the primitive's flow. */
+.app.m-free :is(.m-body, .m-split-in, .m-columns, .m-stack, .m-lead, .m-col) > * { grid-area: auto; }
+.app.m-free .m-inbody { padding-top: 0; }
+.m-optional[data-dropped] { display: none; }
+
+/* Space yields first (intrinsic rule 6): gaps and card padding go to their minimum. */
+.app.m-free[data-yield~="space"] { --gap: 12px; --gap-s: 8px; }
+.app.m-free[data-yield~="space"] .m-body { padding-top: 0; }
+.app.m-free[data-yield~="space"] :is(.card, .listen, .where-card, .codriver) { padding: 12px; gap: 8px; }
+.app.m-free[data-yield~="space"] :is(.trip, .shelf-row, .talk-base) { padding-top: 12px; }
+/* Then text steps down once: the lead figure (.step, from reflow) and the road tier, .85x. */
+.app.m-free[data-yield~="text"] .t-secondary { font-size: calc(var(--road) * .85); }
+
+/* ---- Lead: the one thing read first ------------------------------------------------------------- */
+.m-lead { display: flex; flex-direction: column; gap: calc(var(--u) * 3); min-width: 0; }
+.m-lead .m-row:has(> .big) { flex-wrap: wrap; align-items: baseline; column-gap: calc(var(--hero) * .16); row-gap: calc(var(--u) * 2); }
+/* Words beside the lead figure take the next line when they do not fit beside it. */
+.m-lead .m-row:has(> .big) > .m-label { flex: 0 1 auto; min-width: min(100%, 6em); }
+/* A Glyph beside the lead figure is the hero arrow: .62 of the figure, on its centre. */
+.m-lead .m-row:has(> .big) > .m-glyph { align-self: center; width: calc(var(--hero) * .62); height: calc(var(--hero) * .62); --stroke: 2.1; }
+.m-lead .m-row:has(> .big.step) > .m-glyph { width: calc(var(--hero) * .53); height: calc(var(--hero) * .53); }
+.m-art-lead { width: var(--stageart); height: var(--stageart); border-radius: var(--radius-m); }
+
+/* ---- Tiers: lead (--hero, .big), secondary (--road), tertiary (16), caption (14, t2) ------------ */
+.m-value { color: var(--t1); font-weight: var(--w1); white-space: nowrap; line-height: 1.15; }
+.m-value .unit { font-weight: var(--w2); color: var(--t2); margin-left: .15em; letter-spacing: -.01em; }
+.m-value.t-secondary { font-size: var(--road); letter-spacing: -.03em; }
+.m-value.t-secondary .unit { font-size: .58em; }
+.m-value.t-tertiary { font-size: var(--fs-body); }
+.m-value.t-tertiary .unit { font-size: var(--fs-sub); }
+.m-value.t-caption { font-size: var(--fs-sub); color: var(--t2); }
+.m-label { min-width: 0; color: var(--t1); overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.m-label.t-secondary { font-size: var(--road); font-weight: var(--w2); letter-spacing: -.022em; line-height: 1.15; }
+.m-label.t-tertiary { font-size: var(--fs-body); font-weight: var(--w2); line-height: 1.35; }
+.m-label.t-caption { font-size: var(--fs-sub); font-weight: 500; color: var(--t2); line-height: 1.4; }
+.m-label.muted { color: var(--t2); }
+.m-glyph { width: 20px; height: 20px; flex: none; color: var(--t1); --stroke: 2; }
+.m-row:has(> .t-secondary) > .m-glyph { width: calc(var(--road) * 1.05); height: calc(var(--road) * 1.05); --stroke: 2.1; }
+
+/* ---- Layout primitives ------------------------------------------------------------------------- */
+.m-stack { display: flex; flex-direction: column; gap: var(--gap-s, calc(var(--m) * .5)); min-width: 0; }
+.m-row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; min-width: 0; }
+.m-row:has(> :is(.m-glyph, .bar, .art, .btn-row)) { align-items: center; }
+.m-row > .bar { flex: 1 1 120px; }
+/* A row led by a glyph stays one line, so the glyph never ends a line alone. */
+.m-row:has(> .m-glyph):not(:has(> .big)) { flex-wrap: nowrap; }
+/* Controls win over readouts (intrinsic rule 6): only the words right after the glyph give way. */
+.m-row:has(> .m-glyph):not(:has(> .big)) > * { flex: none; }
+.m-row:has(> .m-glyph):not(:has(> .big)) > .m-glyph + .m-label { flex: 0 1 auto; min-width: 0; }
+/* Split: side by side in row flow when the block holds two 240 px columns; else one above the other. */
+.m-split { container-type: inline-size; min-width: 0; }
+.m-split-in { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap, calc(var(--m) * .75)); align-items: center; }
+@container (min-width: 480px) { .app[data-flow="row"] .m-split-in { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); column-gap: var(--m); } }
+/* Columns: equal, at least 150 px each; fewer per line when narrow. */
+.m-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 16px var(--m); align-items: start; min-width: 0; }
+.m-col { display: flex; flex-direction: column; min-width: 0; }
+.m-divider { height: 1px; background: var(--edge); }
+
+/* ---- Card, text, facts, lists ------------------------------------------------------------------ */
+.m-card { gap: 12px; }
+.m-text { font-size: var(--fs-body); font-weight: var(--w2); line-height: 1.35; color: var(--t1); overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+.m-text.muted { font-size: var(--fs-sub); color: var(--t2); }
+.app .m-card > .list, .app.m-free .m-body .list { padding: 0; margin: 0 -10px; flex: none; overflow: visible; }
+.app .m-card .plan-note, .app.m-free .plan-note { grid-template-columns: 20px minmax(0, 1fr); padding: 0; }
+.m-facts { row-gap: 4px; min-width: 0; }
+/* A fact is a readout: one line, then an ellipsis (it yields before any control does). */
+.m-fact { max-width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-body); font-weight: var(--w2); color: var(--t2); }
+.m-fact b { color: var(--t1); font-weight: var(--w2); }
+@container frame (max-height: 420px) { .m-card { gap: 8px; } }
+
+/* ---- Sequence: things along the route, left to right ----------------------------------------------
+   One 2 px track from here (left) to the end; stops as 2 x 8 ticks, weather stretches as spans: each
+   starts with a t3 hairline, and a marked stretch (rain, snow, fog, storm) is a bright t1 segment on
+   the track, like a position bar. Labels sit at their place (reflow places them). */
+.m-seq { position: relative; min-width: 0; padding-top: 3px; }
+.m-seq-track { position: relative; height: 2px; border-radius: 2px; background: var(--track); }
+.m-seq-tick { position: absolute; top: -3px; width: 2px; height: 8px; border-radius: 1px; background: var(--t2); transform: translateX(-1px); }
+.m-seq-tick:last-child { background: var(--t1); }
+.m-seq-span { position: absolute; top: 0; bottom: 0; border-left: 2px solid var(--t3); }
+/* Two marked stretches side by side keep a 2 px cut of the ground between them. */
+.m-seq-span.marked { background: var(--t1); border-left-color: var(--bg); top: -1px; bottom: -1px; border-radius: 2px; }
+.m-seq-labels { position: relative; height: 40px; margin-top: 10px; }
+.m-seq-item, .m-seq-more { position: absolute; top: 0; max-width: 45%; white-space: nowrap; }
+.m-seq-item b { display: block; font-size: var(--fs-sub); font-weight: var(--w1); color: var(--t1); overflow: hidden; text-overflow: ellipsis; }
+.m-seq-item span { display: block; font-size: var(--fs-meta); color: var(--t2); margin-top: 2px; }
+/* An unmarked stretch (clear) reads one grey tier down: the marked one is the news. */
+.m-seq-item.plain b { color: var(--t2); font-weight: var(--w2); }
+.m-seq-more { font-size: var(--fs-meta); color: var(--t2); line-height: 1.4; }
+
+/* ---- Details: more, on request. Closed: one quiet button (56 hit). Open: its parts. ---------------- */
+.m-details { display: flex; flex-direction: column; min-width: 0; }
+.m-details > .btn { align-self: flex-start; margin-left: -18px; }
+.m-details-body { display: flex; flex-direction: column; gap: var(--gap-s, 12px); }
+
+/* A Moment coming or going: the content cross-fades (200 ms; none with reduced motion). */
+@media (prefers-reduced-motion: no-preference) { .app[data-fade] > * { animation: swap-in var(--t-swap) var(--ease); } }
+
+/* ---- The trip row's leading figure as the next turn (a Moment shows it nowhere else) ------------ */
+.trip .left.m-trip-turn { display: inline-flex; align-items: center; gap: .25em; }
+.m-trip-arrow { width: 1em; height: 1em; flex: none; color: var(--t1); --stroke: 2.1; }
+
+/* ---- Settings: the car's readings. A value the driver reads is t1 at body size; none is t2. ---- */
+.talk-reading .meta { font-size: var(--fs-body); font-weight: var(--w2); color: var(--t1); }
+.talk-reading .meta.talk-none { color: var(--t2); }
+.talk-reading.talk-engine-on .meta { font-weight: var(--w1); }

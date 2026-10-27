@@ -10,6 +10,13 @@
  * - the settings drive Daylight contrast (Navigation), the wake word, the Co-driver, and
  *   downloads without Wi-Fi (Downloads keeps its own switch; the setting is its source).
  */
+import { createCarLink } from "../car/link";
+import { browserBluetooth } from "../car/gatt";
+import { createEventDetectors } from "../events/detectors";
+import { createDriveSummary } from "../events/drive-summary";
+import { createWeatherAhead } from "../weather/ahead";
+import { momentCapabilities } from "../moments/capabilities";
+import { haversineMeters } from "../nav/geo";
 import { createVelaListening } from "../audio/vela-listening";
 import { browserMic } from "../codriver/mic";
 import { browserWebSocket } from "../codriver/socket";
@@ -48,7 +55,9 @@ export function composeVela(config: LoadedConfig): VelaApp {
   });
   const network = browserNetwork();
   const nav = createNavEngine({ config, fixes, network, settings });
-  const trips = createTripsReporter({ config, network });
+  const bluetooth = browserBluetooth();
+  const car = createCarLink({ ...(bluetooth ? { bluetooth } : {}), ...(config.tankLitres ? { tankLitres: config.tankLitres } : {}) });
+  const trips = createTripsReporter({ config, network, carReadings: () => car.readings });
   const unfollow = trips.follow(fixes);
 
   const vela = createVelaListening(config);
@@ -68,12 +77,17 @@ export function composeVela(config: LoadedConfig): VelaApp {
 
   const mic = browserMic();
   const onMicPermission = (state: "granted" | "denied") => app.notePermission("mic", state);
+  const weather = createWeatherAhead({ url: config.weatherUrl, online: () => network.online(), emit: (change) => {
+    events.weather(`${change.to}:${Math.round(change.at.lat * 100)}:${Math.round(change.at.lng * 100)}`, { ...change });
+  } });
   const surface = createSurfaceLink({
+    capabilities: momentCapabilities(settings.value.moments),
+    soundMode: () => settings.value.soundMode,
     origin: config.origins.assistant,
     path: config.assistantSurfacePath,
     connect: browserWebSocket,
     coDriver: () => settings.value.coDriver,
-    nav,
+    nav, car, weather,
     listening: vela.listening,
   });
   const coDriver = createTalk({
@@ -109,14 +123,55 @@ export function composeVela(config: LoadedConfig): VelaApp {
     settings,
   });
 
+  const summary = createDriveSummary();
+  const events = createEventDetectors((event) => settings.value.moments && surface.report(event));
+  let resetBeforeRoute = false;
+  let lastNavKind = nav.state.kind;
+  const updateEvents = () => {
+    const state = nav.state;
+    if (resetBeforeRoute && state.kind === "guiding" && lastNavKind !== "guiding" && lastNavKind !== "rerouting") {
+      events.reset(); weather.reset(); resetBeforeRoute = false;
+    }
+    lastNavKind = state.kind;
+    events.update(state, car.readings, state.kind === "arrived" ? summary.snapshot(state.destination.name) : undefined);
+    if (state.kind === "guiding" || state.kind === "rerouting") void weather.check(state.guidance);
+    else weather.reset();
+  };
+  let eventsDisposed = false;
+  const afterFix = () => queueMicrotask(() => { if (!eventsDisposed) updateEvents(); });
+  const offEventsNav = nav.subscribe(afterFix);
+  const offEventsSurface = surface.subscribe((status) => { if (status.kind === "open") afterFix(); });
+  const offEventsCar = car.subscribe(updateEvents);
+  let startName = "Starting point";
+  const offSummary = fixes.subscribe((fix) => {
+    const nearby = nav.savedPlaces().find((place) => haversineMeters(place, fix) <= 200);
+    startName = nearby?.name ?? "Starting point";
+    summary.record(fix);
+  });
+  let wasMoving = false;
+  const offDrive = trips.subscribeStatus((status) => {
+    if (status.moving && !wasMoving) {
+      summary.reset(startName, true); car.newDrive();
+    }
+    if (!status.moving && wasMoving) resetBeforeRoute = true;
+    wasMoving = status.moving;
+  });
+  let enabled = settings.value.moments;
+  const offMomentsSettings = settings.subscribe((value) => {
+    surface.refreshContext();
+    if (value.moments !== enabled) { enabled = value.moments; surface.setCapabilities(momentCapabilities(enabled)); if (enabled) afterFix(); }
+  });
+  void car.start();
   surface.start();
   coDriver.start();
 
   return {
     trips,
     testTurnSound: () => playTurnSound(vela.listening, earcons, "approach"),
-    deps: { nav, trips, listening: vela.listening, downloads: vela.downloads, coDriver, wake, settings, app },
+    deps: { moments: surface.moments, weather, car, nav, trips, listening: vela.listening, downloads: vela.downloads, coDriver, wake, settings, app },
     dispose() {
+      eventsDisposed = true; offEventsSurface();
+      offEventsNav(); offEventsCar(); offSummary(); offDrive(); offMomentsSettings(); car.dispose(); weather.reset();
       wake.dispose();
       coDriver.dispose();
       surface.close();

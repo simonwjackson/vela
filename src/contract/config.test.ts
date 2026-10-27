@@ -45,3 +45,11 @@ test("loadConfig rejects a missing origins block", async () => {
   const fetcher = (async () => new Response("{}")) as typeof fetch;
   await expect(loadConfig(fetcher)).rejects.toThrow("origins");
 });
+
+test("weather defaults and tank size stays unknown unless configured", async () => {
+  const defaults = await loadConfig(withTalkModel("assistant"));
+  expect(defaults.weatherUrl).toBe("https://api.open-meteo.com/v1/forecast"); expect(defaults.tankLitres).toBeUndefined();
+  const configured = await loadConfig((async () => new Response(JSON.stringify({ origins, weatherUrl: "https://weather.test/forecast", tankLitres: 50 }))) as typeof fetch);
+  expect(configured.tankLitres).toBe(50); expect(configured.weatherUrl).toBe("https://weather.test/forecast");
+  for (const tankLitres of [0, -1, "50"]) await expect(loadConfig((async () => new Response(JSON.stringify({ origins, tankLitres }))) as typeof fetch)).rejects.toThrow("tankLitres");
+});

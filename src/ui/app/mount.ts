@@ -15,10 +15,16 @@ import { morphChildren } from "../core/morph";
 import { plan, planVars } from "../core/plan";
 import { fit } from "../view/fit";
 import { coverColor, lightFor } from "../view/light";
-import type { AppDeps, Item, NavState, Place, Readouts, SourceId, UpdateCheck } from "./contract";
-import { inputOf } from "./input";
 import { renderScreen } from "./render";
-import { type Memory, OVER_LIMIT_MS, type Screen, type ScreenInput, type SheetState, TAP_MS, TOAST_MS, type UiState, bootScreen, overLimit, screen } from "./screen";
+import type { AppDeps, Item, MomentDismissBy, MomentShow, NavState, Place, Readouts, SourceId, UpdateCheck } from "./contract";
+import { inputOf } from "./input";
+import { CAR_CHIP_MS, type Memory, OVER_LIMIT_MS, type Screen, type ScreenInput, type SheetState, STOP_KINDS, TAP_MS, TOAST_MS, type UiState, bootScreen, liveTurn, overLimit, screen } from "./screen";
+import type { MomentData } from "../moment/data";
+import { type Effect, NEVER_MIND, NONE, type Now, type Phase, type Road, type Seen, accept, asksFor, dismiss as dismissPhase, event as eventPhase, events, tick as tickPhase, waitsForTurn } from "../moment/lifecycle";
+import { type MomentEngine, loadMoments } from "../moment/load";
+import { type Part, parts } from "../moment/tree";
+import { reflow } from "../moment/reflow";
+import { type Chrome, DEFAULT_TREE, drawTree } from "../moment/render";
 
 export interface MountOptions {
   /** Shown in Settings ("Vela 0.1.0"). */
@@ -42,7 +48,14 @@ export interface MountOptions {
   dev?: boolean;
   /** Search waits this long after the last key. */
   searchDelayMs?: number;
+  /** Called with each Moment phase change (the dev page reports it). */
+  onMoment?: (phase: Phase["kind"]) => void;
 }
+
+/** How often a Moment's life is checked (its seconds, the turn behind it). */
+const MOMENT_TICK_MS = 1_000;
+/** A Moment's cross-fade in and out (--t-fade in moment.css), and a little room. */
+const FADE_MS = 500;
 
 const SEARCH_DELAY_MS = 300;
 
@@ -64,6 +77,8 @@ export function mount(root: HTMLElement, deps: AppDeps, options: MountOptions = 
   let navState: NavState = nav.state;
   let readouts: Readouts = nav.readouts;
   let disposed = false;
+  /** The "Connect car" chip showed on this drive. */
+  let carAsked = false;
   const cleanups: (() => void)[] = [];
   const timers = new Set<ReturnType<typeof setTimeout>>();
   const later = (ms: number, fn: () => void) => {
@@ -99,12 +114,25 @@ export function mount(root: HTMLElement, deps: AppDeps, options: MountOptions = 
     if (state.kind !== "arrived") memory.arrivedAt = undefined;
     if (state.kind === "routing") memory.lastDestination = state.destination;
     if (state.kind === "preview") memory.lastDestination = state.route.destination;
+    if (state.kind === "idle" || state.kind === "arrived") carAsked = false;
+    askCar(state);
     if (overLimit(r)) {
       if (memory.overSince === undefined) {
         memory.overSince = t;
         later(OVER_LIMIT_MS + 50, schedule); // the readouts show after 3 s, even without a new fix
       }
     } else memory.overSince = undefined;
+  }
+  /**
+   * The "Connect car" chip: once per drive, whenever the car link needs a tap to recover while
+   * guiding: when the drive starts, or later in it when the link drops.
+   */
+  function askCar(state: NavState = navState): void {
+    const driving = state.kind === "guiding" || state.kind === "rerouting";
+    if (!driving || carAsked || deps.car.state.kind !== "connect") return;
+    carAsked = true;
+    memory.carChipUntil = now() + CAR_CHIP_MS;
+    later(CAR_CHIP_MS + 50, schedule);
   }
   remember(navState, readouts);
   memory = { ...memory, ...options.memory };
@@ -122,6 +150,171 @@ export function mount(root: HTMLElement, deps: AppDeps, options: MountOptions = 
       readouts,
     });
 
+  // ---- Moments ----------------------------------------------------------------------------------
+  // A Moment arrives over SurfaceLink (deps.moments), passes the gate, then lives by the lifecycle:
+  // the chip while a close turn is ahead, the screen, then back to Vela's own screen.
+  let phase: Phase = NONE;
+  let program = "";
+  let tree: Part | null = null;
+  let gating = "";
+  /** The lazy chunk (parser, gate), once a Moment has needed it. */
+  let engine: MomentEngine | undefined;
+  let momentTimer: ReturnType<typeof setInterval> | undefined;
+
+  const momentData = (inp: ScreenInput, s: Screen): MomentData => ({ input: inp, screen: s, weather: deps.weather, car: { state: deps.car.state, readings: deps.car.readings } });
+  const roadNow = (): Road => {
+    const g = navState.kind === "guiding" || navState.kind === "rerouting" ? navState.guidance : undefined;
+    return { turn: g ? { index: g.nextStop.index, meters: g.metersToNext, arrive: g.nextStop.maneuver === "arrive" } : undefined };
+  };
+  const seenNow = (): Seen => {
+    const g = navState.kind === "guiding" || navState.kind === "rerouting" ? navState.guidance : undefined;
+    return { nav: navState.kind, turn: g?.nextStop.index, via: g?.route.via.length ?? 0, nextVia: g?.nextVia?.place.name, fuel: deps.car.readings.fuelPercent, car: deps.car.state.kind };
+  };
+  let seen = seenNow();
+
+  /** A sheet, a live Talk turn, the keyboard or first run take the screen; a Moment waits behind them. */
+  const busy = (s: Screen): boolean => !!s.sheet || liveTurn(deps.coDriver.state) || s.keyboard.open || app.firstRun;
+  const nowFor = (s?: Screen): Now => {
+    const sc = s ?? screen(input());
+    return { at: now(), road: roadNow(), visible: !busy(sc) };
+  };
+
+  /**
+   * What draws now: the Moment's tree while it shows, else Vela's own screen. The envelope's chip
+   * shows while the Moment waits for a turn, and while a NoChange Moment shows: there the chip is
+   * its whole message.
+   */
+  function shown(s: Screen): { tree: Part; chrome: Chrome } {
+    if (phase.kind === "none" || busy(s)) return { tree: DEFAULT_TREE, chrome: {} };
+    if (phase.kind === "waiting") return { tree: DEFAULT_TREE, chrome: waitsForTurn(phase, roadNow()) ? { chip: phase.moment.chip, close: true } : {} };
+    if (tree?.typeName === "NoChange") return { tree, chrome: { chip: phase.moment.chip, close: true } };
+    return { tree: tree ?? DEFAULT_TREE, chrome: { close: true } };
+  }
+
+  function setPhase(next: Phase, effects: readonly Effect[] = []): void {
+    const changed = next !== phase;
+    const was = phase.kind;
+    phase = next;
+    for (const e of effects) {
+      // Event speech follows the Sound mode as it is now: in Sounds only a Moment shows silently.
+      if (e.kind === "speak") {
+        if (settings.value.soundMode.kind === "co-driver") deps.coDriver.speak(e.text);
+      } else deps.moments.dismiss(e.id, e.by);
+    }
+    if (phase.kind === "none") {
+      if (momentTimer) clearInterval(momentTimer);
+      momentTimer = undefined;
+    } else if (!momentTimer) {
+      momentTimer = setInterval(() => {
+        if (!disposed) step(tickPhase(phase, nowFor()));
+      }, MOMENT_TICK_MS);
+    }
+    if (changed) {
+      // The content change cross-fades when a Moment comes or goes (reduced motion: shorter).
+      const kind: Phase["kind"] = phase.kind;
+      if (was !== kind && (was === "showing" || kind === "showing")) {
+        const at = String(now());
+        frame.dataset.fade = at;
+        later(FADE_MS, () => {
+          if (frame.dataset.fade === at) delete frame.dataset.fade;
+        });
+      }
+      options.onMoment?.(phase.kind);
+      schedule();
+    }
+  }
+  const step = (r: { phase: Phase; effects: readonly Effect[] }) => setPhase(r.phase, r.effects);
+  cleanups.push(() => {
+    if (momentTimer) clearInterval(momentTimer);
+  });
+
+  function onMoment(m: MomentShow | undefined): void {
+    if (!m) {
+      // The assistant's moment.dismiss: back to Vela's own screen, nothing to report.
+      gating = "";
+      if (phase.kind !== "none") setPhase(NONE);
+      return;
+    }
+    if (!settings.value.moments) return;
+    gating = m.id;
+    void loadMoments()
+      .then((e) => {
+        engine = e;
+        const inp = input();
+        return e.gate({ program: m.program, show: m, data: momentData(inp, screen(inp)) });
+      })
+      .then(
+      (problems) => {
+        // Moments may have been switched off, or another Moment arrived, while this one was checked.
+        if (disposed || gating !== m.id || !engine || !settings.value.moments) return;
+        gating = "";
+        deps.moments.problems(m.id, problems);
+        if (problems.length) return;
+        program = m.program;
+        tree = engine.read(program).root;
+        step(accept(m, nowFor()));
+      },
+      (e: unknown) => {
+        if (disposed || gating !== m.id) return;
+        gating = "";
+        deps.moments.problems(m.id, [{ code: "render", message: `Vela could not draw it: ${e instanceof Error ? e.message : String(e)}` }]);
+      },
+    );
+  }
+
+  function dismissMoment(by: MomentDismissBy): void {
+    step(dismissPhase(phase, by));
+  }
+
+  /** The road or the car changed: until events, and the turn behind a waiting Moment. */
+  function observe(): void {
+    const next = seenNow();
+    const happened = events(seen, next);
+    seen = next;
+    for (const ev of happened) step(eventPhase(phase, ev));
+    if (phase.kind !== "none") step(tickPhase(phase, nowFor()));
+  }
+
+  /** Open a Details: its statement again with open = true, merged by name (mergeStatements). */
+  function openDetails(id: string): void {
+    const line = program.split("\n").find((l) => new RegExp(`^${id.replace(/[^\w]/g, "")}\\s*=\\s*Details\\(`).test(l));
+    if (!line || /,\s*true\)\s*$/.test(line) || !engine) return;
+    program = engine.patch(program, line.replace(/\)\s*$/, ", true)"));
+    tree = engine.read(program).root;
+    schedule();
+  }
+
+  /** A Button's step, onto what the app already does. */
+  function runStep(arg: string | undefined): void {
+    let st: { type?: unknown; [k: string]: unknown };
+    try {
+      st = JSON.parse(arg ?? "{}");
+    } catch {
+      return;
+    }
+    switch (st.type) {
+      case "OpenSheet":
+        if (st.sheet === "route") actions["route-open"]?.(undefined);
+        else if (st.sheet === "library") actions["library-open"]?.(undefined);
+        else if (st.sheet === "where") actions["where-open"]?.(undefined);
+        else if (st.sheet === "add-stop" && onRoute()) setSheet({ kind: "add-stop", query: "" });
+        return;
+      case "FindStop": {
+        const k = STOP_KINDS.find((x) => x.id === st.kind);
+        if (k && onRoute()) actions["stop-kind"]?.(k.query);
+        return;
+      }
+      case "Resume":
+        if (st.source === "music" || st.source === "podcasts" || st.source === "books") fail(listening.send({ type: "resume", source: st.source }));
+        return;
+      case "ConnectCar":
+        fail(deps.car.connect());
+        return;
+      case "Dismiss":
+        dismissMoment("tap");
+        return;
+    }
+  }
   // ---- Render ------------------------------------------------------------------------------------
   let queued = false;
   function schedule(): void {
@@ -165,9 +358,21 @@ export function mount(root: HTMLElement, deps: AppDeps, options: MountOptions = 
     last = s;
     shell.toggleAttribute("data-daylight", s.daylight);
     frame.dataset.state = s.id;
-    const next = h("main", null, ...renderScreen(s, { keyboard: inp.frame.keyboard }));
-    morphChildren(frame, next);
+    // The screen may have freed up (a sheet closed): a waiting Moment can show now.
+    if (phase.kind === "waiting") step(tickPhase(phase, nowFor(s)));
+    const { tree, chrome } = shown(s);
+    const drawn = drawTree(tree, momentData(inp, s), { keyboard: inp.frame.keyboard, ...chrome });
+    const free = drawn.free;
+    frame.classList.toggle("m-free", free);
+    if (free) frame.dataset.moment = phase.kind === "showing" ? phase.moment.id : "";
+    else delete frame.dataset.moment;
+    morphChildren(frame, h("main", null, ...drawn.els));
     fit(frame);
+    if (free ? reflow(frame) : false) fit(frame);
+    else if (!free) {
+      delete frame.dataset.reflow;
+      delete frame.dataset.yield;
+    }
     afterRender(s);
     setLight(s);
     options.onScreen?.(s);
@@ -460,6 +665,20 @@ export function mount(root: HTMLElement, deps: AppDeps, options: MountOptions = 
       app.checkForUpdate().then(done, () => done("failed"));
     },
     "toast-dismiss": () => setUi({ toast: undefined }),
+    "moments-toggle": () => {
+      const on = !settings.value.moments;
+      settings.set({ moments: on });
+      // Switched on: fetch the Moment chunk now, so the first Moment needs no signal.
+      if (on) void loadMoments().catch(() => undefined);
+    },
+    "car-connect": () => {
+      memory.carChipUntil = undefined;
+      fail(deps.car.connect());
+      schedule();
+    },
+    "moment-close": () => dismissMoment("tap"),
+    "moment-details": (arg) => openDetails(arg ?? ""),
+    "moment-step": (arg) => runStep(arg),
     "use-here": () => coDriver.choose(coDriver.current.id),
     "setup-location": () => (options.requestLocation ?? requestLocation)(),
     "setup-mic": () => (options.requestMic ?? requestMic)(),
@@ -596,6 +815,7 @@ export function mount(root: HTMLElement, deps: AppDeps, options: MountOptions = 
   cleanups.push(
     nav.subscribe((state, r) => {
       remember(state, r);
+      queueMicrotask(observe);
       const left = (navState.kind === "guiding" || navState.kind === "rerouting") && !(state.kind === "guiding" || state.kind === "rerouting");
       navState = state;
       readouts = r;
@@ -613,6 +833,32 @@ export function mount(root: HTMLElement, deps: AppDeps, options: MountOptions = 
     app.subscribe(() => schedule()),
     online.subscribe(() => schedule()),
     deps.trips.subscribe(() => schedule()),
+    deps.weather.subscribe(() => schedule()),
+    deps.moments.subscribe((m) => onMoment(m)),
+    deps.car.subscribe(() => {
+      askCar();
+      observe();
+      schedule();
+    }),
+    coDriver.subscribe((t) => {
+      // "Never mind" while a Moment shows dismisses it; "show car" opens its Details.
+      const said = t.kind === "thinking" ? t.said : "";
+      if (!said || phase.kind === "none") return;
+      if (NEVER_MIND.test(said)) dismissMoment("voice");
+      else if (phase.kind === "showing" && tree) {
+        const d = parts(tree.props.blocks).find((b) => b.typeName === "Details" && b.props.open !== true && asksFor(said, String(b.props.label ?? "")));
+        if (d?.statementId) openDetails(d.statementId);
+      }
+    }),
+    settings.subscribe((v) => {
+      // Off: drop a Moment still being checked, and the one on screen.
+      if (!v.moments) gating = "";
+      if (!v.moments && phase.kind !== "none") {
+        setPhase(NONE);
+        program = "";
+        tree = null;
+      }
+    }),
   );
 
   // The Fold changes size when it folds or rotates; the keyboard changes the visual viewport.
@@ -643,6 +889,8 @@ export function mount(root: HTMLElement, deps: AppDeps, options: MountOptions = 
   }
 
   render();
+  // A Moment that arrived before the mount.
+  if (deps.moments.current) onMoment(deps.moments.current);
   if (ui.typing) frame.querySelector<HTMLInputElement>("input[autofocus]")?.focus();
 
   return () => {

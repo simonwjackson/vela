@@ -14,6 +14,7 @@ import { CO_DRIVER_ID, type DaylightMode, type Settings, type SettingsStore, typ
 export const SETTINGS_KEY = "vela.settings";
 
 export const DEFAULT_SETTINGS: Settings = {
+  moments: true,
   daylight: "auto",
   soundMode: { kind: "sounds" },
   wakeWord: false,
@@ -42,6 +43,7 @@ function validFields(raw: unknown): Partial<Settings> {
   const out: Partial<Settings> = {};
   if (DAYLIGHT.includes(r.daylight as DaylightMode)) out.daylight = r.daylight as DaylightMode;
   if (isSoundMode(r.soundMode)) out.soundMode = r.soundMode;
+  if (typeof r.moments === "boolean") out.moments = r.moments;
   if (typeof r.wakeWord === "boolean") out.wakeWord = r.wakeWord;
   if (typeof r.coDriver === "string" && CO_DRIVER_ID.test(r.coDriver)) out.coDriver = r.coDriver;
   if (typeof r.downloadsOnWifiOnly === "boolean") out.downloadsOnWifiOnly = r.downloadsOnWifiOnly;

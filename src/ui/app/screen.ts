@@ -8,6 +8,8 @@
 import { cleanTitle, distance, distanceParts, duration, km, left, minutesOf, placeName, shortRoad, arrival, clockTime, count } from "../core/format";
 import { type GlyphName, maneuverIcon, glyph } from "../core/icons";
 import type {
+  CarReadings,
+  CarState,
   CoDriverInfo,
   DownloadStatus,
   Guidance,
@@ -47,6 +49,8 @@ export const TOAST_MS = 4_000;
 export const WAKE_MODEL_MB = 18;
 /** A press shorter than this is a tap: it stops the Co-driver and sends nothing. */
 export const TAP_MS = 300;
+/** The "Connect car" chip shows this long, once per drive. */
+export const CAR_CHIP_MS = 30_000;
 
 export const STATE_IDS = [
   // drive
@@ -105,6 +109,8 @@ export interface Memory {
   talkPressedAt?: number | undefined;
   /** The Destination of the last routing attempt, for "No road route to …" and Try again. */
   lastDestination?: Place | undefined;
+  /** The "Connect car" chip shows until then (set once per drive, when it starts). */
+  carChipUntil?: number | undefined;
 }
 
 export interface ScreenInput {
@@ -131,6 +137,8 @@ export interface ScreenInput {
   version?: string | undefined;
   /** Set when Vela cannot start (no config). */
   boot?: string | undefined;
+  /** The car's OBD link and its readings (ADR 0012). */
+  car?: { state: CarState; readings: CarReadings } | undefined;
 }
 
 // ---- The screen model ---------------------------------------------------------------------------
@@ -334,6 +342,8 @@ export type SheetView =
       downloads: string;
       wifiOnly: boolean;
       trips: string;
+      moments: boolean;
+      car: CarView;
       version?: string | undefined;
       /** The version row's action: check, checking, an update to restart into, or up to date. */
       update: SettingsUpdate;
@@ -343,6 +353,15 @@ export type SheetView =
   | { kind: "trips"; queued: number; waiting: string; error?: string | undefined };
 
 export type SettingsUpdate = "check" | "checking" | "ready" | "current";
+
+/** The car rows in Settings: the link, and the readings while connected. */
+export interface CarView {
+  state: CarState["kind"];
+  /** Connected: fuel, Range, outside, coolant, battery; undefined is "No reading". */
+  rows: readonly { icon: GlyphName; title: string; value?: string | undefined }[];
+  /** The check-engine light and the stored fault codes, while connected. */
+  engine?: { on: boolean | undefined; codes: readonly string[] } | undefined;
+}
 
 export interface Screen {
   id: StateId;
@@ -633,6 +652,9 @@ function topView(input: ScreenInput): TopView {
     chip = { kind: "status", icon: "nosignal", text: "No signal, using saved route", warn: true };
   } else if (app.soundBlocked) chip = { kind: "button", icon: "soundOff", text: "Tap to turn on sounds", warn: true, toast: false, action: "sounds-on" };
   else if (ui.toast) chip = { kind: "button", icon: ui.toast.icon, text: ui.toast.text, warn: false, toast: true, action: "toast-dismiss" };
+  else if (memory.carChipUntil !== undefined && now < memory.carChipUntil && input.car?.state.kind === "connect") {
+    chip = { kind: "button", icon: "car", text: "Connect car", warn: false, toast: true, action: "car-connect" };
+  }
   // The update never interrupts guidance: it shows with no route, or once the driver has arrived.
   else if (app.updateReady && (nav.kind === "idle" || nav.kind === "error" || nav.kind === "arrived")) {
     chip = { kind: "button", icon: "retry", text: "Update ready, tap to restart", warn: false, toast: true, action: "update" };
@@ -735,7 +757,7 @@ function driveBase(input: ScreenInput, talk: TalkView): BaseView {
   };
 }
 
-function whereCard(input: ScreenInput): CardView {
+export function whereCard(input: ScreenInput): CardView {
   // The field and up to 3 places: Saved places first, then one Recent destination.
   const rows = [
     ...input.saved.map((p, index) => ({ icon: placeIcon(p), title: p.name, list: "saved" as const, index })),
@@ -948,6 +970,8 @@ function sheetView(input: ScreenInput, kb: Screen["keyboard"]): SheetView | unde
         downloads: downloadsText(downloadsView(input.downloads, input.online)),
         wifiOnly: input.settings.downloadsOnWifiOnly,
         trips: input.trips.queued ? `${count(input.trips.queued)} waiting to send` : "All sent",
+        moments: input.settings.moments,
+        car: carView(input.car),
         version: input.version,
         update: input.app.updateReady ? "ready" : (ui.update ?? "check"),
       };
@@ -980,6 +1004,24 @@ function sheetView(input: ScreenInput, kb: Screen["keyboard"]): SheetView | unde
 }
 
 const r0 = (g: Guidance): string => g.route.destination.name;
+
+function carView(car: ScreenInput["car"]): CarView {
+  const state = car?.state.kind ?? "unavailable";
+  if (state !== "connected" || !car) return { state, rows: [] };
+  const r = car.readings;
+  const deg = (c: number | undefined) => (c === undefined ? undefined : `${Math.round(c)} °C`.replace(/^-/, "\u2212"));
+  return {
+    state,
+    rows: [
+      { icon: "fuel", title: "Fuel", value: r.fuelPercent === undefined ? undefined : `${Math.round(r.fuelPercent)}%` },
+      { icon: "trip", title: "Range", value: r.rangeKm === undefined ? undefined : km(r.rangeKm * 1000) },
+      { icon: "thermo", title: "Outside", value: deg(r.ambientC) },
+      { icon: "engine", title: "Coolant", value: deg(r.coolantC) },
+      { icon: "battery", title: "Battery", value: r.voltage === undefined ? undefined : `${r.voltage.toFixed(1)} V` },
+    ],
+    engine: { on: r.mil, codes: r.dtcs ?? [] },
+  };
+}
 
 /** The car tool's stop kinds, as the add-stop sheet offers them. */
 export const STOP_KINDS: readonly { id: "fuel" | "food" | "rest"; label: string; query: string }[] = [

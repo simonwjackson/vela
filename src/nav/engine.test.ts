@@ -616,3 +616,27 @@ describe("readouts", () => {
     }
   });
 });
+
+test("the next three stops use the route timeline for their individual ETAs", async () => {
+  const h = setup({ now: () => T0 });
+  try {
+    h.fixes.push({ ...ORIGIN, at: T0, accuracyM: 5 });
+    await h.engine.start(h.destination);
+    const speeds = [5, 15, 25, 35, 45];
+    h.valhalla.plan = (locations) => locations.slice(1).map((to, i) => {
+      const from = locations[i]; if (!from) throw new Error("missing leg origin");
+      return straightLeg({ lat: from.lat, lng: from.lon }, { lat: to.lat, lng: to.lon }, `Invented stop ${i}`, speeds[i] ?? 15);
+    });
+    const places = Array.from({ length: 4 }, (_, i) => ({ name: `Invented stop ${i}`, ...destinationPoint(ORIGIN, 0, (i + 1) * 500) }));
+    for (const place of places) await h.engine.addStop(place);
+    const g = guidanceOf(h.engine.state);
+    expect(g.nextVias?.map((via) => via.place.name)).toEqual(places.slice(0, 3).map((p) => p.name));
+    expect(g.nextVia).toBe(g.nextVias?.[0]);
+    for (const [i, seconds] of [100, 100 + 500 / 15, 100 + 500 / 15 + 500 / 25].entries()) {
+      expect(g.nextVias?.[i]?.secTo).toBeCloseTo(seconds, 0);
+      expect(g.nextVias?.[i]?.arriveAt).toBeCloseTo(T0 + seconds * 1000, -3);
+    }
+    h.fixes.push({ ...destinationPoint(ORIGIN, 0, 600), at: T0 + 120000, accuracyM: 5, speedMps: 10 });
+    expect(guidanceOf(h.engine.state).nextVias?.map((via) => via.place.name)).toEqual(places.slice(1).map((p) => p.name));
+  } finally { h.engine.dispose(); }
+});

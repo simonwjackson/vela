@@ -38,5 +38,6 @@ export function inputOf(deps: AppDeps, x: InputExtras): ScreenInput {
     memory: x.memory,
     frame: x.frame,
     version: x.version,
+    car: deps.car ? { state: deps.car.state, readings: deps.car.readings } : undefined,
   };
 }

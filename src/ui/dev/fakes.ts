@@ -6,6 +6,13 @@
 import { coDriverInfo } from "../../codriver/names";
 import type {
   AppDeps,
+  CarLink,
+  CarReadings,
+  CarState,
+  MomentDismissBy,
+  MomentShow,
+  Moments,
+  UiProblem,
   AppStatus,
   CoDriver,
   CoDriverInfo,
@@ -29,6 +36,8 @@ import type {
   UpdateCheck,
   WakeState,
   WakeWord,
+  Weather,
+  WeatherStretch,
 } from "../app/contract";
 
 type Listener<T extends unknown[]> = (...args: T) => void;
@@ -186,6 +195,9 @@ export class FakeCoDriver implements CoDriver {
     this.calls.push(["cancel"]);
     this.set({ kind: "idle" });
   }
+  speak(text: string): void {
+    this.calls.push(["speak", text]);
+  }
   choose(id: string): void {
     this.calls.push(["choose", id]);
     this.current = this.all.find((c) => c.id === id) ?? { id };
@@ -213,7 +225,7 @@ export class FakeWake implements WakeWord {
 }
 
 export class FakeSettings implements SettingsStore {
-  value: Settings = { daylight: "auto", soundMode: { kind: "sounds" }, wakeWord: true, coDriver: "navigator", downloadsOnWifiOnly: true };
+  value: Settings = { moments: true, daylight: "auto", soundMode: { kind: "sounds" }, wakeWord: true, coDriver: "navigator", downloadsOnWifiOnly: true };
   calls: Call[] = [];
   private subs = new Subs<[Settings]>();
   set(patch: Partial<Settings>): void {
@@ -290,7 +302,62 @@ export class FakeTrips implements TripsReporter {
   }
 }
 
+/** The SurfaceLink stand-in: `show` and `clear` play the assistant; `sent` records what Vela reported. */
+export class FakeMoments implements Moments {
+  current: MomentShow | undefined = undefined;
+  sent: (["problems", string, readonly UiProblem[]] | ["dismissed", string, MomentDismissBy])[] = [];
+  private subs = new Subs<[MomentShow | undefined]>();
+  show(m: MomentShow): void {
+    this.current = m;
+    this.subs.emit(m);
+  }
+  /** moment.dismiss from the assistant. */
+  clear(): void {
+    this.current = undefined;
+    this.subs.emit(undefined);
+  }
+  subscribe(fn: (m: MomentShow | undefined) => void): () => void {
+    return this.subs.add(fn);
+  }
+  problems(id: string, problems: readonly UiProblem[]): void {
+    this.sent.push(["problems", id, problems]);
+  }
+  dismiss(id: string, by: MomentDismissBy): void {
+    this.sent.push(["dismissed", id, by]);
+    if (this.current?.id === id) this.clear();
+  }
+}
+
+export class FakeCar implements CarLink {
+  state: CarState = { kind: "unavailable" };
+  readings: CarReadings = { at: 0 };
+  calls: Call[] = [];
+  private subs = new Subs<[]>();
+  set(state: CarState, readings: Partial<CarReadings> = {}): void {
+    this.state = state;
+    this.readings = { ...this.readings, ...readings };
+    this.subs.emit();
+  }
+  async connect(): Promise<void> {
+    this.calls.push(["connect"]);
+  }
+  subscribe(fn: () => void): () => void {
+    return this.subs.add(fn);
+  }
+}
+
+/** Forecast fixture uses the same observable state contract as the weather engine. */
+export class ScriptedWeather implements Weather {
+  stretches: readonly WeatherStretch[] = [];
+  private subs = new Subs<[]>();
+  set(stretches: readonly WeatherStretch[]): void { this.stretches = stretches; this.subs.emit(); }
+  subscribe(fn: () => void): () => void { return this.subs.add(fn); }
+}
+
 export interface Fakes {
+  weather: ScriptedWeather;
+  moments: FakeMoments;
+  car: FakeCar;
   nav: FakeNav;
   trips: FakeTrips;
   listening: FakeListening;
@@ -303,6 +370,9 @@ export interface Fakes {
 
 export function fakes(): Fakes & AppDeps {
   return {
+    weather: new ScriptedWeather(),
+    moments: new FakeMoments(),
+    car: new FakeCar(),
     nav: new FakeNav(),
     trips: new FakeTrips(),
     listening: new FakeListening(),

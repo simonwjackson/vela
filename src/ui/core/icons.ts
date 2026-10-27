@@ -41,6 +41,10 @@ export const glyph = {
     '<path d="M12 21s-6.5-6.2-6.5-11c0-1.2.3-2.3.9-3.3M9 4.2A6.5 6.5 0 0 1 18.5 10c0 2-1.1 4.2-2.5 6.1"/><path d="M3 3l18 18"/>',
   ),
   // Plan: the car tool's stop kinds.
+  car: s('<path d="M4.5 16.5v-4l2-5h11l2 5v4z"/><path d="M4.5 12.5h15"/><path d="M7 16.5v2M17 16.5v2"/>'),
+  engine: s('<path d="M3.5 10v5M3.5 12.5H6"/><path d="M6 9h2V7h5v2h2.5l2 2.5h2.5v3h-2.5l-2 3H8.5L6 15z"/>'),
+  thermo: s('<path d="M10 14.5V5a2 2 0 0 1 4 0v9.5a3.5 3.5 0 1 1-4 0z"/><path d="M12 9v7"/>'),
+  battery: s('<rect x="3.5" y="7.5" width="17" height="11" rx="2"/><path d="M7.5 7.5v-2M16.5 7.5v-2M7 13h3M14 13h3M15.5 11.5v3"/>'),
   fuel: s(
     '<path d="M5 20V5.5A1.5 1.5 0 0 1 6.5 4h6A1.5 1.5 0 0 1 14 5.5V20M3.5 20h12M7.5 8h4"/><path d="M14 10h1.5a1.5 1.5 0 0 1 1.5 1.5v4a1.5 1.5 0 0 0 3 0V8.5L17.5 6"/>',
   ),

@@ -16,7 +16,7 @@
  * unknown device ids itself (registerUnknown), so a rejected id is not a case to handle.
  * A send that times out but did reach Traccar is sent again; Traccar then stores it twice.
  */
-import type { Fix, TripsReporter, VelaConfig } from "../contract";
+import type { CarReadings, Fix, TripsReporter, VelaConfig } from "../contract";
 import type { Network } from "../nav/engine";
 import type { FixSource } from "../nav/position";
 import { type KeyValueStore, deviceStore, readJson } from "../nav/storage";
@@ -40,6 +40,7 @@ export interface TripsStatus {
 
 export interface TripsDeps {
   readonly config: VelaConfig;
+  readonly carReadings?: () => CarReadings;
   readonly store?: KeyValueStore;
   readonly fetcher?: typeof fetch;
   readonly network?: Network;
@@ -55,9 +56,9 @@ export interface TripsEngine extends TripsReporter {
 }
 
 /** Compact queue entry: [at, lat, lng, accuracyM, speedMps|null, headingDeg|null]. */
-type Row = [number, number, number, number, number | null, number | null];
+type Row = [number, number, number, number, number | null, number | null, CarReadings?];
 
-export function osmAndUrl(origin: string, deviceId: string, fix: Fix): string {
+export function osmAndUrl(origin: string, deviceId: string, fix: Fix, car?: CarReadings): string {
   const params = new URLSearchParams({
     id: deviceId,
     lat: fix.lat.toFixed(6),
@@ -67,6 +68,9 @@ export function osmAndUrl(origin: string, deviceId: string, fix: Fix): string {
   });
   if (fix.speedMps !== undefined) params.set("speed", (fix.speedMps * MPS_TO_KNOTS).toFixed(2));
   if (fix.headingDeg !== undefined) params.set("bearing", fix.headingDeg.toFixed(1));
+  const extras = { fuel: car?.fuelPercent, range: car?.rangeKm, temp: car?.ambientC, coolant: car?.coolantC, power: car?.voltage };
+  for (const [key, value] of Object.entries(extras)) if (value !== undefined && Number.isFinite(value)) params.set(key, String(value));
+  if (car?.dtcs) params.set("dtcs", car.dtcs.join(","));
   return `${origin}/?${params}`;
 }
 
@@ -133,7 +137,7 @@ export function createTripsReporter(deps: TripsDeps): TripsEngine {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), SEND_TIMEOUT_MS);
     try {
-      await fetcher(osmAndUrl(deps.config.origins.traccar, deps.config.traccarDeviceId, fromRow(row)), {
+      await fetcher(osmAndUrl(deps.config.origins.traccar, deps.config.traccarDeviceId, fromRow(row), row[6]), {
         method: "GET",
         mode: "no-cors",
         keepalive: true,
@@ -178,7 +182,7 @@ export function createTripsReporter(deps: TripsDeps): TripsEngine {
       const changed = (step.motion.kind === "moving") !== (motion.kind === "moving");
       motion = step.motion;
       if (step.record.length > 0) {
-        for (const fix of step.record) queue.push(toRow(fix));
+        for (const fix of step.record) queue.push(toRow(fix, deps.carReadings?.()));
         if (queue.length > MAX_QUEUED) queue.splice(0, queue.length - MAX_QUEUED);
         persistSoon();
         if (online()) void reporter.flush();
@@ -228,8 +232,10 @@ export function createTripsReporter(deps: TripsDeps): TripsEngine {
   return reporter;
 }
 
-function toRow(f: Fix): Row {
-  return [f.at, f.lat, f.lng, f.accuracyM, f.speedMps ?? null, f.headingDeg ?? null];
+function toRow(f: Fix, car?: CarReadings): Row {
+  const row: Row = [f.at, f.lat, f.lng, f.accuracyM, f.speedMps ?? null, f.headingDeg ?? null];
+  if (car) row.push(car);
+  return row;
 }
 
 function fromRow([at, lat, lng, accuracyM, speed, heading]: Row): Fix {
@@ -244,5 +250,5 @@ function fromRow([at, lat, lng, accuracyM, speed, heading]: Row): Fix {
 }
 
 function isRows(v: unknown): v is Row[] {
-  return Array.isArray(v) && v.every((r) => Array.isArray(r) && r.length === 6 && typeof r[0] === "number");
+  return Array.isArray(v) && v.every((r) => Array.isArray(r) && (r.length === 6 || r.length === 7) && typeof r[0] === "number");
 }

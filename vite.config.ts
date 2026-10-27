@@ -1,3 +1,4 @@
+import { assertMomentBundle, isZodModule } from "./src/build/moment-bundle";
 import { defineConfig } from "vitest/config";
 
 /**
@@ -10,6 +11,20 @@ const version = env.VELA_VERSION?.trim() || "dev";
 
 export default defineConfig({
   define: { __VELA_VERSION__: JSON.stringify(version) },
+  plugins: [{
+    name: "moment-client-schema-only",
+    generateBundle(_options, bundle) {
+      const chunks = Object.values(bundle).flatMap((output) => output.type === "chunk" ? [{
+        fileName: output.fileName, isEntry: output.isEntry, imports: output.imports,
+        dynamicImports: output.dynamicImports, modules: Object.keys(output.modules),
+      }] : []);
+      const localSchemas = chunks.flatMap((chunk) => chunk.modules.filter((id) =>
+        /\/src\//.test(id) && !id.includes("/node_modules/") &&
+        this.getModuleInfo(id)?.importedIds.some(isZodModule),
+      ));
+      assertMomentBundle(chunks, localSchemas);
+    },
+  }],
   build: {
     target: "es2022",
     outDir: "dist",

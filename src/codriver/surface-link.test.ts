@@ -1,4 +1,5 @@
-import type { Place, VelaConfig } from "../contract";
+import { MOMENT_RULES, MOMENT_RULES_TEXT, MOMENT_POSTURES } from "../contract";
+import type { Place, VelaConfig, SoundMode } from "../contract";
 import { createListeningFixture, settle } from "../audio/testing/listening-fixture";
 import { createNavEngine } from "../nav/engine";
 import { ORIGIN, SwitchableNetwork, VALHALLA, ValhallaServer } from "../nav/fixtures";
@@ -41,11 +42,15 @@ function setup(path = "/surface") {
   });
   const audio = createListeningFixture();
   let coDriver = "navigator";
+  let soundMode: SoundMode = { kind: "sounds" };
+  let clock = Date.now();
   const link = createSurfaceLink({
     origin: config.origins.assistant,
     path,
     connect: server.connect,
     coDriver: () => coDriver,
+    soundMode: () => soundMode,
+    now: () => clock,
     nav,
     listening: audio.listening,
     initialBackoffMs: 1_000,
@@ -56,6 +61,8 @@ function setup(path = "/surface") {
     nav,
     audio,
     link,
+    elapse(ms: number) { clock += ms; link.refreshContext(); },
+    mode(value: SoundMode) { soundMode = value; link.refreshContext(); },
     choose(id: string) {
       coDriver = id;
     },
@@ -98,7 +105,7 @@ test("hello names the Co-driver and every car tool, then context follows", () =>
     "route.addStop",
     "route.end",
   ]);
-  expect(context).toEqual({ type: "context.update" });
+  expect(context).toEqual({ type: "context.update", soundMode: { kind: "sounds" }, stops: [] });
   h.dispose();
 });
 
@@ -116,7 +123,8 @@ test("car tools run on tool.call and answer with tool.result", async () => {
 
   const set = await call(h, "route.setDestination", { query: "cafe" });
   expect(set).toMatchObject({ ok: true, value: { destination: { name: "Invented Cafe" }, state: "guiding" } });
-  // A trip change pushes context at once.
+  // Trip changes share the ten-second whole-context rate limit.
+  h.elapse(10000);
   expect(h.server.latest.sent.some((m) => m.type === "context.update" && (m.trip as { destination: Place })?.destination.name === "Invented Cafe")).toBe(true);
 
   const stop = await call(h, "route.addStop", { query: "fuel", kind: "fuel" });
@@ -173,4 +181,26 @@ test("never reconnects after REPLACED, until the driver takes the link back", ()
   expect(h.server.latest.sent[0]).toMatchObject({ type: "surface.hello", coDriver: "guide" });
   expect(h.server.connections).toHaveLength(2);
   h.dispose();
+});
+
+
+test("context includes Sound mode on connect and coalesces setting changes", () => {
+  const f = setup(); f.link.start(); f.server.latest.accept();
+  expect(f.server.latest.sent.find((m) => m.type === "context.update")?.soundMode).toEqual({ kind: "sounds" });
+  f.mode({ kind: "co-driver", coDriver: "guide" });
+  f.elapse(10000);
+  expect(f.server.latest.sent.at(-1)?.soundMode).toEqual({ kind: "co-driver", coDriver: "guide" });
+  f.dispose();
+});
+
+test("capabilities follow hello and switching Moments off suppresses events", () => {
+  const f = setup();
+  const capabilities = { enabled: true, version: 1, schema: {}, rules: { numbers: MOMENT_RULES, text: MOMENT_RULES_TEXT }, examples: ["root = Frame()"], postures: MOMENT_POSTURES };
+  f.link.setCapabilities(capabilities); f.link.start(); f.server.latest.accept();
+  expect(f.server.latest.types().slice(0, 3)).toEqual(["surface.hello", "moment.capabilities", "context.update"]);
+  expect(f.link.report({ type: "event.report", id: "event-1", kind: "setting-off", context: {} })).toBe(true);
+  f.link.setCapabilities({ ...capabilities, enabled: false });
+  expect(f.server.latest.sent.at(-1)).toMatchObject({ type: "moment.capabilities", enabled: false });
+  expect(f.link.report({ type: "event.report", id: "event-2", kind: "arrived", context: {} })).toBe(false);
+  f.dispose();
 });
