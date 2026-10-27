@@ -5,14 +5,14 @@
  *
  *   ?scene=fuel|arrived|stops|engine|refused   the Moment and its situation (dev/moments.ts)
  *   &phase=idle|waiting|screen|details|faded|settings|car|car-end   (refused: the scene's show is refused)
- *   &posture=ul|up|fl|fp   the frame's size beside the controls; &bare=1 fills the window
+ *   &posture=um|ul|up|fl|fp   the frame's size beside the controls (core/postures.ts); &bare=1 fills the window
  *   &stress=1&daylight=1   worst-case data, Daylight contrast
  *   &car=reconnecting|connect   the car link mid-recovery, or needing a tap
  *
  * Sets body[data-ready] once the phase is drawn and fonts and covers have loaded.
  */
-import { MOMENT_POSTURES } from "../../contract/moments";
 import { mount } from "../app/mount";
+import { POSTURES, posture as postureOf } from "../core/postures";
 import { fakes } from "./fakes";
 import { NOW } from "./fixtures";
 import { MOMENT_SCENES, momentScene, passTurn, setUp } from "./moments";
@@ -25,7 +25,7 @@ const stress = flag("stress");
 const daylight = flag("daylight");
 const bare = flag("bare");
 const phase = q.get("phase") ?? "idle";
-const posture = MOMENT_POSTURES.find((p) => p.id === q.get("posture")) ?? MOMENT_POSTURES[0];
+const posture = postureOf(q.get("posture")) ?? POSTURES[0];
 const settle = (ms = 30) => new Promise((r) => setTimeout(r, ms));
 
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Record<string, string> = {}, ...kids: (Node | string)[]) => {
@@ -81,7 +81,7 @@ async function run(): Promise<void> {
         "header",
         { class: "md-chrome" },
         pick("Moment", sc.id, MOMENT_SCENES.map((s) => [s.id, s.label]), "scene"),
-        pick("Posture", posture.id, MOMENT_POSTURES.map((p) => [p.id, `${p.w}×${p.h}`]), "posture"),
+        pick("Posture", posture.id, POSTURES.map((p) => [p.id, `${p.w}×${p.h} ${p.label.toLowerCase()}`]), "posture"),
         toggle("Worst case", "stress", stress),
         toggle("Daylight", "daylight", daylight),
       ),

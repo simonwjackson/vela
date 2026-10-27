@@ -89,7 +89,9 @@
 /* ---- Base ---------------------------------------------------------------------------- */
 html, body { height: 100%; margin: 0; overflow: hidden; background: #08090a; }
 body > #app { height: 100%; }
-.vela { position: relative; height: 100%; overflow: hidden; color: var(--t1);
+/* The frame is the edge of the screen: nothing paints outside it, whatever its position or transform
+   (contain: paint also clips fixed and transformed descendants). frame.test.ts holds this. */
+.vela { position: relative; height: 100%; overflow: hidden; contain: paint; color: var(--t1);
   --light: var(--accent); --light-alpha: 5%;
   background: radial-gradient(90% 70% at 15% 0%, color-mix(in srgb, var(--light) var(--light-alpha), transparent), transparent 60%), var(--bg);
   font-family: "Inter", sans-serif; font-feature-settings: "cv11", "ss03"; -webkit-font-smoothing: antialiased;

@@ -31,6 +31,21 @@ all of them. Arrow keys step through states; S and D flip worst-case data and Da
 `&update=ready|checking|current` sets the update state (the chip, and Settings' version row);
 `&check=current|updated|failed` is what a tap on "Check for updates" finds.
 
+## Postures
+
+`core/postures.ts` is the list every layout change is checked at: `um` 1000×755 (the Fold 8
+unfolded in landscape, as an installed PWA, measured from a screenshot), then the four guesses from
+the Signal brief (`ul` 932×553, `up` 704×783, `fl` 711×374, `fp` 475×638). The capture tool takes a
+posture id or `all` in place of a size, and `dev-moments.html?posture=` picks from the same list.
+
+```
+node src/ui/dev/capture.mjs /tmp/shots . "/dev.html?state=noroute@all=noroute"   # noroute-um.png …
+node src/ui/dev/frame-check.mjs .        # every state at every posture: nothing paints off screen
+```
+
+`/dev.html?state=noroute&shelf=one&places=recent1` draws the driver's first report from the Fold:
+one Source on the Shelf, one Recent destination.
+
 ## Rules the code keeps
 
 - Layout is a function of the frame's size. Resize, fold and the keyboard re-plan; nothing reads the device.

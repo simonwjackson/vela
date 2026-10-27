@@ -2,11 +2,13 @@
  * The dev page: `dev.html?state=<id>&stress=1&daylight=1` mounts the real app on fakes in any of
  * the Signal states. `&update=ready|checking|current` sets the update state (Settings shows it in
  * its version row), and `&check=current|updated|failed` is what a tap on that row finds, after
- * 1.2 s. `&version=` sets the build shown there. Without `state` it lists them. Arrow keys step through states; S and D flip
+ * 1.2 s. `&version=` sets the build shown there. `&shelf=one` keeps only the playing Source on the
+ * Shelf; `&places=recent1` leaves one Recent destination and no Saved places. Without `state` it lists them. Arrow keys step through states; S and D flip
  * stress and Daylight. Sets body[data-ready] when fonts and covers have loaded, and
  * body[data-mapped] to the state the app's mapping chose.
  */
 import { mount, mountBootError } from "../app/mount";
+import type { SourceId } from "../app/contract";
 import type { UiState } from "../app/screen";
 import { fakes } from "./fakes";
 import { NOW, fixtures } from "./fixtures";
@@ -59,6 +61,18 @@ if (!sc) {
   const talk = q.get("talk");
   if (talk === "offline" || talk === "mic-denied") f.coDriver.state = { kind: talk };
   if (talk === "unreachable") f.coDriver.state = { kind: "unreachable", reason: "error" };
+  // &shelf=one: the Shelf holds the playing Source only, so the Shelf row is names only.
+  // &places=recent1: no Saved places, one Recent destination. Together they draw the driver's first
+  // report from the Fold (2026-10-27): plan-noroute-shelf at 1000×755.
+  if (q.get("shelf") === "one") {
+    const playing = f.listening.nowPlaying?.item.source;
+    const keep = (s: SourceId) => (s === playing ? f.listening.shelf[s] : undefined);
+    f.listening.shelf = { music: keep("music"), podcasts: keep("podcasts"), books: keep("books") };
+  }
+  if (q.get("places") === "recent1") {
+    f.nav.saved = [];
+    f.nav.recent = f.nav.recent.slice(0, 1);
+  }
   const update = q.get("update");
   if (update === "ready") f.app.updateReady = true;
   const check = q.get("check");
