@@ -52,7 +52,9 @@
   /* Weight pair: w1 for answers and titles, w2 for supporting text. */
   --w1: 560; --w2: 500;
 
-  /* Type: five sizes. Two fluid (--hero, --road, from plan(w, h)) and three fixed. --trip is --road. */
+  /* Type: five sizes. Two fluid (--hero, --road, from plan(w, h)) and three fixed. --trip is --road.
+     Two derived steps, each for one part: the hero's .85x step-down, and --stagetitle (.75 x --road,
+     at least 20) for the stage title at no route, which is not an answer. */
   --fs-body: 16px;  /* card and row titles, buttons, field text, eta, clock, speed, co-driver text */
   --fs-sub: 14px;   /* by-lines, row subs, chips, segment labels */
   --fs-meta: 13px;  /* meta, section labels (sentence case, t3) */
@@ -250,12 +252,16 @@ button.chip::after { content: ""; position: absolute; top: -14px; bottom: -14px;
 }
 
 /* ---- Stage: Now playing large, in the answer slot only (no route) ------------------------ */
-.stage { grid-area: answer; align-self: center; min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: calc(var(--m) * .75); align-items: center; }
+/* The cover and the text share both edges: the title starts on the cover's top edge, the keys end on
+   its bottom edge. When the text is the taller (column flow), the cover hangs from its top.
+   The title is --stagetitle, a step under --road: at rest it is not the answer to a driving question. */
+.stage { grid-area: answer; align-self: center; min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: calc(var(--m) * .75); align-items: start; }
 .stage .art { width: var(--stageart); height: var(--stageart); border-radius: 12px; }
-.stage .title { font-size: var(--road); line-height: 1.2; letter-spacing: -.02em; }
-.stage .by { font-size: var(--fs-sub); margin-top: 6px; }
-.stage .bar { margin: 16px 0 4px; max-width: 420px; }
-.stage .keys { justify-content: flex-start; margin-left: -16px; }
+.stage > .text { align-self: stretch; display: flex; flex-direction: column; }
+.stage .title { font-size: var(--stagetitle); line-height: 1.2; letter-spacing: -.018em; margin-top: -.1em; }
+.stage .by { font-size: var(--fs-sub); margin: 6px 0 16px; }
+.stage .bar { flex: none; margin: auto 0 4px; max-width: 420px; }
+.stage .keys { justify-content: flex-start; margin: 0 0 0 -16px; }
 
 /* ---- Shelf: the last item from each Source, one tap resumes it -------------------------- */
 .app[data-flow="col"] .listen.shelf { grid-template-columns: 1fr; }
@@ -265,21 +271,32 @@ button.chip::after { content: ""; position: absolute; top: -14px; bottom: -14px;
 .shelf.large { grid-area: answer; align-self: center; display: grid; gap: 8px; min-width: 0; }
 .shelf.large .row .lead { width: 64px; height: 64px; }
 /* Shelf row, in the base row: three items side by side, then Talk. Narrow: glyph + Source only. */
-.shelf-row { grid-area: trip; display: flex; align-items: center; column-gap: 12px; padding-top: calc(var(--m) * .75); container-type: inline-size; min-width: 0; }
+/* One line with Talk: the items and Talk spread across the row, so no gap opens before Talk. */
+.shelf-row { grid-area: trip; display: flex; align-items: center; justify-content: space-between; column-gap: 12px; padding-top: calc(var(--m) * .75); container-type: inline-size; min-width: 0; }
 .shelf-item { flex: 1 1 0; display: flex; align-items: center; gap: 10px; min-height: var(--hit); min-width: 0; padding: 0 8px; margin-left: -8px; border-radius: var(--radius-m); text-align: left; font-size: var(--fs-body); color: var(--t2); }
 .shelf-item i { width: 20px; height: 20px; flex: none; --stroke: 1.9; }
 .shelf-item b { font-weight: var(--w1); flex: none; }
 .shelf-item span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--t2); }
 .shelf-item[aria-current] { color: var(--t1); }
 .shelf-item:active { background: var(--current); }
-.shelf-item:not(:has(span)) { flex: 0 1 auto; margin-right: 12px; }
-.shelf-row > .talk-btn { margin-left: auto; }
-@container (max-width: 720px) { .shelf-item span { display: none; } .shelf-item, .shelf-item:not(:has(span)) { flex: 1 1 0; margin-right: 0; } }
+.shelf-item:not(:has(span)) { flex: 0 1 auto; }
+@container (max-width: 720px) { .shelf-item span { display: none; } .shelf-item, .shelf-item:not(:has(span)) { flex: 1 1 0; } }
 
 /* ---- Where to card ----------------------------------------------------------------------- */
 .where-card { gap: 6px; padding: 12px; }
 .where-card .rows { gap: 0; }
 .where-card .row { min-height: 60px; padding: 8px 6px; }
+/* Places are offers, not answers: one step quieter than a title (body weight). */
+.where-card .row .text b { font-weight: var(--w2); }
+
+/* ---- No route, row flow: the stage and the Where to card share a top edge ------------------
+   They sit in one auto row between two equal spacers, so the slack splits evenly above and below
+   the pair (the base row's own gap adds a little below: the pair sits just over the centre). The
+   upper spacer keeps .75m under the top row; when the pair needs more than the frame has, the
+   frame overflows and fit() drops the card's optional rows, last first. */
+.app[data-flow="row"]:not(.m-free):has(> .where-card) { grid-template-rows: auto minmax(calc(var(--m) * .75), 1fr) auto minmax(0, 1fr) auto;
+  grid-template-areas: "top top" ". ." "answer listen" ". ." "trip trip"; }
+.app[data-flow="row"]:not(.m-free):has(> .where-card) > :is(.stage, .shelf.large, .answer, .where-card) { align-self: start; padding-bottom: 0; }
 
 /* ---- Co-driver card: takes the card slot while Talk is open ------------------------------ */
 .codriver { grid-area: listen; align-self: center; min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 14px; row-gap: 6px; align-items: center;

@@ -125,6 +125,8 @@
 .vela[data-dev] .plan-kb { background: var(--track); box-shadow: inset 0 1px 0 var(--edge); }
 /* Space yields first: the margins above the frame and around B tighten to 12. */
 .app:has(> .plan-kb) { padding-top: 12px; row-gap: 12px; }
+/* Row flow: the frame's top is already 12, so the sheet keeps it (its usual 12 - m would cut its top). */
+.app[data-flow="row"]:has(> .plan-kb) > .sheet:not(.plan-full) { margin-top: 0; }
 .app:has(> .plan-kb) > :is(.trip, .shelf-row) { padding-top: 0; }
 /* biome-ignore lint/correctness/noInvalidGridAreas: one column per row is consistent; the rule miscounts single-name rows */
 .app[data-flow="col"]:has(> .plan-kb) { grid-template-areas: "top" "answer" "listen" "trip" "kb"; grid-template-rows: auto auto minmax(0, 1fr) auto auto; }

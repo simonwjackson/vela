@@ -1,6 +1,7 @@
 import { arrival, cleanTitle, distanceParts, duration, placeName, shortRoad } from "./format";
 import { morph } from "./morph";
-import { FULL_SHEET_BELOW, ROW_FLOW_RATIO, SHORT_FRAME_H, plan } from "./plan";
+import { FULL_SHEET_BELOW, ROW_FLOW_RATIO, ROW_UNIT_RATIO, SHORT_FRAME_H, STAGE_ART_MAX, plan } from "./plan";
+import { POSTURES } from "./postures";
 
 describe("plan(w, h): layout from the container alone", () => {
   test("the four Fold postures", () => {
@@ -8,6 +9,25 @@ describe("plan(w, h): layout from the container alone", () => {
     expect(plan(704, 783)).toMatchObject({ flow: "col", m: 42, hero: 120, road: 29, side: "1fr", art: 64 });
     expect(plan(711, 374)).toMatchObject({ flow: "row", m: 24, hero: 79, road: 21, side: "256px", art: 48 });
     expect(plan(475, 638)).toMatchObject({ flow: "col", m: 29, hero: 98, road: 24, art: 64 });
+  });
+
+  test("the measured posture: the Fold 8 unfolded as an installed PWA, 1000×755", () => {
+    expect(POSTURES[0]).toMatchObject({ id: "um", w: 1000, h: 755 });
+    // The width pays for the unit: a height-only unit drew a 174 px hero, and "Arrived" ran into the card.
+    expect(plan(1000, 755)).toMatchObject({ flow: "row", m: 45, hero: 139, road: 34, side: "360px", art: 64, stageart: STAGE_ART_MAX, stagetitle: 26 });
+  });
+
+  test("row flow: the height sets the unit until the frame is under 1.65 times as wide; one px either side", () => {
+    expect(ROW_UNIT_RATIO).toBe(1.65);
+    expect(plan(1000, 606).u).toBe(6.06);
+    expect(plan(1000, 607).u).toBeCloseTo(1000 / 1.65 / 100, 6);
+    expect(plan(1000, 607).u).toBeLessThan(6.07);
+  });
+
+  test("the stage title is a step under the road size, never under the road's floor", () => {
+    const at = (w: number, h: number) => plan(w, h).stagetitle;
+    expect([at(1000, 755), at(932, 553), at(704, 783), at(711, 374), at(475, 638)]).toEqual([26, 23, 22, 20, 20]);
+    for (const p of POSTURES) expect(plan(p.w, p.h).stagetitle).toBeLessThan(plan(p.w, p.h).road);
   });
 
   test("row flow from a 1.2 ratio; one px either side", () => {
