@@ -26,9 +26,11 @@ import { createTalk } from "../codriver/talk";
 import type { AppDeps, LoadedConfig } from "../contract";
 import { browserNetwork, createNavEngine } from "../nav/engine";
 import { GeolocationFixSource } from "../nav/position";
+import { deviceIdFrom } from "../sources/device-id";
 import { createSettingsStore } from "../settings/store";
 import { MANUAL_WIFI_KEY } from "../sw/downloads";
 import { type TripsEngine, createTripsReporter } from "../trips/reporter";
+import { keepScreenAwake } from "../wake/screen-lock";
 import { createWakeWord } from "../wake/wake-word";
 import { type VelaAppStatus, createAppStatus } from "./app-status";
 import { bridgeTurnSounds, playTurnSound, toneEarcons } from "./turn-sounds";
@@ -43,6 +45,7 @@ export interface VelaApp {
 }
 
 export function composeVela(config: LoadedConfig): VelaApp {
+  const releaseScreen = keepScreenAwake({ page: document, taps: window, ...("wakeLock" in navigator ? { wakeLock: navigator.wakeLock } : {}) });
   const settings = createSettingsStore(localStorage, {
     // Before the setting existed, the downloads switch was stored on its own.
     downloadsOnWifiOnly: localStorage.getItem(MANUAL_WIFI_KEY) !== "true",
@@ -73,7 +76,7 @@ export function composeVela(config: LoadedConfig): VelaApp {
   };
   addEventListener("pointerdown", () => void audio.resume(), { capture: true });
   const earcons = toneEarcons(context);
-  const unbridge = bridgeTurnSounds(nav, vela.listening, earcons, config.turnSoundLeadMs);
+  const unbridge = bridgeTurnSounds(nav, earcons, config.turnSoundLeadMs);
 
   const mic = browserMic();
   const onMicPermission = (state: "granted" | "denied") => app.notePermission("mic", state);
@@ -93,6 +96,7 @@ export function composeVela(config: LoadedConfig): VelaApp {
   const coDriver = createTalk({
     origin: config.origins.voice,
     model: config.talkModel,
+    channel: deviceIdFrom(localStorage, "vela.installId", "vela"),
     connect: browserWebSocket,
     settings,
     mic,
@@ -167,11 +171,12 @@ export function composeVela(config: LoadedConfig): VelaApp {
 
   return {
     trips,
-    testTurnSound: () => playTurnSound(vela.listening, earcons, "approach"),
+    testTurnSound: () => playTurnSound(earcons, "approach"),
     deps: { moments: surface.moments, weather, car, nav, trips, listening: vela.listening, downloads: vela.downloads, coDriver, wake, settings, app },
     dispose() {
       eventsDisposed = true; offEventsSurface();
       offEventsNav(); offEventsCar(); offSummary(); offDrive(); offMomentsSettings(); car.dispose(); weather.reset();
+      releaseScreen();
       wake.dispose();
       coDriver.dispose();
       surface.close();

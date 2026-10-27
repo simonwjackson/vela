@@ -30,11 +30,13 @@ function setup(fetcher?: typeof fetch) {
     ...(fetcher ? { fetcher } : {}),
     origin: "https://voice.test",
     model: "assistant",
+    channel: "vela-install-1",
     connect: server.connect,
     settings,
     mic,
     speech,
     listening: {
+      send: async () => undefined, search: async () => [],
       holdForTalk: () => {
         holds.taken += 1;
         return () => {
@@ -105,7 +107,7 @@ function answer(socket: ReturnType<typeof setup>["server"]["latest"], responseId
 test("the Talk socket sequence: session, press, release, answer, barge-in", async () => {
   const h = setup();
   const socket = h.server.latest;
-  expect(socket.url).toBe("wss://voice.test/v1/realtime?model=assistant");
+  expect(socket.url).toBe("wss://voice.test/v1/realtime?model=assistant&channel=vela-install-1&surface=talk");
   socket.accept();
   expect(socket.sent).toEqual([{ type: "session.update", session: { voice: "navigator", turn_detection: null } }]);
   expect(h.talk.state).toEqual({ kind: "idle" });
@@ -370,6 +372,6 @@ test("Talk press cancels event Moment speech and releases its hold", async () =>
   const h = setup((async () => new Response(new Int16Array(2400).buffer)) as typeof fetch);
   h.server.latest.accept(); h.talk.speak("Rain ahead"); await settle();
   expect(h.holds).toEqual({ taken: 1, released: 0 }); expect(h.speech.queuedMs).toBe(100);
-  h.talk.press(); expect(h.holds).toEqual({ taken: 1, released: 1 }); expect(h.speech.queuedMs).toBe(0);
+  h.talk.press(); expect(h.holds).toEqual({ taken: 2, released: 1 }); expect(h.speech.queuedMs).toBe(0);
   h.talk.dispose();
 });

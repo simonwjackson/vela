@@ -1,7 +1,7 @@
 /**
  * Talk: the CoDriver the UI drives, over voice-gateway's Realtime WebSocket (ADR 0007).
  *
- * The socket is `wss://<origins.voice>/v1/realtime?model=<talkModel>` (VelaConfig; the gateway's
+ * The socket is `wss://<origins.voice>/v1/realtime?model=<talkModel>&channel=vela-<install id>&surface=talk` (VelaConfig; the gateway's
  * name for the personal assistant); it opens at start, reconnects
  * with backoff, and sends `session.update { voice: <Co-driver id>, turn_detection: null }` on
  * every open and every change of Co-driver. A Co-driver session is push to talk:
@@ -13,8 +13,8 @@
  *   cleared instead, since the gateway refuses an empty commit.
  * - "Hey Vela" (`wake`): the same turn, opened by the wake word and closed on the phone after
  *   END_OF_TURN_SILENCE_MS of silence (end-of-turn.ts).
- * - The answer streams back as transcript and audio deltas. While it plays, Listening is held
- *   (Music ducks; Podcasts and Books pause, then resume 2 s back).
+ * - From opening Talk through the end of the answer, Listening pauses all Sources. Holds
+ *   nest with Co-driver speech. Music resumes in place; Podcasts and Books resume 2 s back.
  *
  * Events for an older response are ignored, so a cancelled answer never ends the next turn.
  * The gateway names the response in two shapes (voice-gateway src/realtime.rs): audio and
@@ -26,7 +26,8 @@
  * then changes nothing; only `choose` with the current id, "Use here", takes it back), and
  * `mic-denied` after the microphone was refused (until a later press gets it).
  */
-import type { CoDriver, CoDriverId, CoDriverInfo, Listening, SettingsStore, TalkState } from "../contract";
+import type { AssistantCard, CoDriver, CoDriverId, CoDriverInfo, Listening, SettingsStore, TalkState } from "../contract";
+import { createAssistantEvents } from "./assistant-events";
 import type { Network } from "../nav/engine";
 import { type EndOfTurn, createEndOfTurn } from "./end-of-turn";
 import { FRAME_MS, MicError, type MicFrame, type MicSource } from "./mic";
@@ -55,11 +56,13 @@ export interface TalkOptions {
   readonly origin: string;
   /** `VelaConfig.talkModel`: the gateway's model name for the personal assistant. */
   readonly model: string;
+  /** Stable per-install channel, `vela-<random id>`. Not an identity or a secret. */
+  readonly channel: string;
   readonly connect: WebSocketFactory;
   readonly settings: SettingsStore;
   readonly mic: MicSource;
   readonly speech: SpeechOutput;
-  readonly listening: Pick<Listening, "holdForTalk">;
+  readonly listening: Pick<Listening, "holdForTalk" | "send" | "search">;
   readonly surface: Pick<SurfaceLink, "replaced" | "restart" | "subscribe">;
   readonly network: Network;
   readonly timers?: Timers;
@@ -80,6 +83,8 @@ type Turn = "none" | "wake" | "listening" | "thinking" | "speaking";
 
 interface ServerEvent {
   readonly type?: string;
+  readonly action?: unknown;
+  readonly card?: unknown;
   readonly transcript?: string;
   readonly delta?: string;
   readonly response_id?: string;
@@ -92,6 +97,8 @@ export function createTalk(options: TalkOptions): CoDriverClient {
   const { settings, mic, speech, listening, surface, network } = options;
   const timers = options.timers ?? browserTimers;
   const listeners = new Set<(state: TalkState) => void>();
+  const cardListeners = new Set<(card: AssistantCard) => void>();
+  const assistantEvents = createAssistantEvents(listening, (card) => { for (const fn of [...cardListeners]) fn(card); });
 
   let link: LinkStatus = { kind: "connecting" };
   let failedOnce = false;
@@ -121,7 +128,7 @@ export function createTalk(options: TalkOptions): CoDriverClient {
   });
 
   const socket: ReconnectingSocket = createReconnectingSocket({
-    url: () => `${socketUrl(options.origin, "/v1/realtime")}?model=${encodeURIComponent(options.model)}`,
+    url: () => `${socketUrl(options.origin, "/v1/realtime")}?${new URLSearchParams({ model: options.model, channel: options.channel, surface: "talk" })}`,
     connect: options.connect,
     onOpen: () => sendSession(),
     onMessage,
@@ -225,9 +232,13 @@ export function createTalk(options: TalkOptions): CoDriverClient {
 
   /** Open a turn: clear (stops the Co-driver), truncate after a barge-in, then the microphone. */
   function openTurn(from: "press" | "wake", before: readonly number[] = []): void {
+    // Take the next hold first: barge-in must not briefly resume media between turns.
+    const nextHold = listening.holdForTalk("listening");
+    momentSpeech.stop();
     if (turn === "speaking") bargeIn();
     else send({ type: "input_audio_buffer.clear" });
     endTurn();
+    releaseHold = nextHold;
     const id = turnId;
     turn = from === "wake" ? "wake" : "listening";
     endOfTurn = from === "wake" ? createEndOfTurn(before) : undefined;
@@ -285,7 +296,7 @@ export function createTalk(options: TalkOptions): CoDriverClient {
     const id = turnId;
     answerTimer = timers.setTimeout(() => {
       answerTimer = undefined;
-      if (id !== turnId || turn !== "thinking" || responseId !== undefined) return;
+      if (id !== turnId || speech.queuedMs > 0 || responseDone) return;
       console.warn("voice-gateway did not answer in time");
       abandon();
     }, ANSWER_TIMEOUT_MS);
@@ -319,6 +330,8 @@ export function createTalk(options: TalkOptions): CoDriverClient {
     } catch {
       return;
     }
+    if (!event || typeof event !== "object") return;
+    assistantEvents.receive(event);
     switch (event.type) {
       case "conversation.item.input_audio_transcription.completed":
         if (turn !== "thinking") return;
@@ -389,13 +402,14 @@ export function createTalk(options: TalkOptions): CoDriverClient {
     },
     speak(text) { if (turn === "none") momentSpeech.speak(text); },
     press() {
-      momentSpeech.stop();
       // Another Vela took the link: show that (the UI offers "Use here"); never take it back silently.
       if (surface.replaced) {
+        momentSpeech.stop();
         emit();
         return;
       }
       if (link.kind !== "open") {
+        momentSpeech.stop();
         if (link.kind === "retrying") socket.restart();
         emit();
         return;
@@ -421,7 +435,6 @@ export function createTalk(options: TalkOptions): CoDriverClient {
       }
     },
     wake(before = []) {
-      momentSpeech.stop();
       if (turn !== "none" || compute().kind !== "idle" || link.kind !== "open") return;
       openTurn("wake", before);
     },
@@ -431,11 +444,17 @@ export function createTalk(options: TalkOptions): CoDriverClient {
         listeners.delete(fn);
       };
     },
+    onCard(fn) {
+      cardListeners.add(fn);
+      return () => { cardListeners.delete(fn); };
+    },
     start() {
       socket.start();
       emit();
     },
     dispose() {
+      assistantEvents.dispose();
+      cardListeners.clear();
       momentSpeech.dispose();
       endTurn();
       offFrames();

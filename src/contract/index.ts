@@ -9,3 +9,4 @@ export * from "./surface";
 export * from "./moments";
 export * from "./car";
 export * from "./weather";
+export * from "./assistant";

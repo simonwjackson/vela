@@ -31,7 +31,7 @@ _Avoid_: Recents, history, favourites
 The one item currently loaded for listening; only one Source plays at a time.
 
 **Turn sound**:
-The short sound that announces a Stop. Music gets quieter under it; Podcasts and Books pause and resume two seconds back.
+The short sound that announces a Stop. In Sounds only it plays over media without pausing or ducking it. When a Co-driver speaks the directions, Music gets quieter; Podcasts and Books pause and resume two seconds back.
 _Avoid_: Chime, alert, voice prompt
 
 **Sound mode**:
@@ -46,7 +46,7 @@ The driver's always-on assistant on the home fleet. Vela is one of its surfaces,
 _Avoid_: Brain, backend, bot
 
 **Talk**:
-The driver presses the talk target, or says "Hey Vela", and speaks. The wake word runs on the phone and keeps the microphone open for it alone (ADR 0009); nothing leaves the phone until it is heard. Pressing talk stops a Co-driver mid-sentence.
+The driver presses the talk target, or says "Hey Vela", and speaks. The wake word runs on the phone and keeps the microphone open for it alone (ADR 0009); nothing leaves the phone until it is heard. Pressing talk stops a Co-driver mid-sentence. Talk pauses what is playing until the answer finishes, the driver cancels, or no answer comes. Music resumes in place; Podcasts and Books resume two seconds back. Media the driver paused stays paused.
 _Avoid_: Listening mode
 
 ## Navigation

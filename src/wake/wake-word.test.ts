@@ -37,11 +37,12 @@ function setup() {
   const talk = createTalk({
     origin: "https://voice.test",
     model: "assistant",
+    channel: "vela-install-1",
     connect: server.connect,
     settings,
     mic,
     speech: new ScriptedSpeech(),
-    listening: { holdForTalk: () => () => undefined },
+    listening: { holdForTalk: () => () => undefined, send: async () => undefined, search: async () => [] },
     surface: { replaced: false, restart: () => undefined, subscribe: () => () => undefined },
     network: new SwitchableNetwork(),
   });

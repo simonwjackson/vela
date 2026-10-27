@@ -1,6 +1,6 @@
 /**
  * The Listening engine: one Now playing across Music, Podcasts and Books, the Shelf, and
- * how listening yields to Turn sounds.
+ * how listening yields to speech and Talk (earcons themselves do not interrupt media).
  *
  * Rules this module owns:
  * - Only one Source plays at a time. Starting an Item pauses the other Source. If a Source
@@ -9,12 +9,12 @@
  * - The Shelf keeps the last Item of each Source and is persisted on the device. At start, an
  *   Item a Service reports as more recent (`SourceAdapter.lastItem`) replaces the stored one;
  *   when a Service cannot answer, the stored Shelf stays.
- * - Turn sounds: Music ducks and restores after the sound. Podcasts and Books pause and then
+ * - Timed speech yields: Music ducks and restores. Podcasts and Books pause and then
  *   resume TALK_RESUME_BACK_SEC earlier. A driver command during the yield cancels the
  *   automatic resume: the driver's intent wins.
- * - Co-driver speech (`holdForTalk`) yields the same way, for as long as the hold lasts. Holds
- *   nest; the last release restores. A Turn sound during a hold never restores early, and a
- *   Podcast or Book paused by a Turn sound when a hold begins resumes only after the hold.
+ * - Co-driver speech (`holdForTalk`) yields the same way; a listening hold pauses Music too. Holds
+ *   nest; the last release restores. A timed yield during a hold never restores early, and a
+ *   Podcast or Book paused by a timed yield when a hold begins resumes only after the hold.
  * - While something plays, the active adapter reports its position every `syncEveryMs`, and
  *   again whenever it pauses or loses the Now playing slot.
  */
@@ -43,7 +43,7 @@ export interface ListeningOptions {
   readonly shelfStore: ShelfStore;
   /** How often the playing adapter reports its position. Default 15 s. */
   readonly syncEveryMs?: number;
-  /** Music gain under a Turn sound, 0..1. Default 0.25. */
+  /** Music gain under Co-driver speech, 0..1. Default 0.25. */
   readonly duckFactor?: number;
 }
 
@@ -53,7 +53,7 @@ export interface ListeningEngine extends Listening {
   dispose(): void;
 }
 
-/** How a Source yields to a Turn sound. */
+/** How a Source yields during timed speech (not Sounds-only earcons). */
 export type TurnSoundYield = "duck" | "pause-and-rewind";
 
 export function turnSoundYield(source: SourceId): TurnSoundYield {
@@ -87,9 +87,9 @@ export function createListening(options: ListeningOptions): ListeningEngine {
   let duckDeadline = 0;
   let duckTimer: ReturnType<typeof setTimeout> | undefined;
   let talkYield: TalkYield | undefined;
-  /** Co-driver speech holds; while any is open, Music stays ducked. */
+  /** Speech and listening holds share one resume; only the final release restores playback. */
   let holds = 0;
-  /** A Podcast or Book paused for the Co-driver, resumed when the last hold ends. */
+  /** The item paused for speech or Talk, resumed when the last hold ends. */
   let talkHold: { readonly source: SourceId; readonly itemId: string } | undefined;
 
   const publish = () => changes.emit({ nowPlaying, shelf });
@@ -119,12 +119,12 @@ export function createListening(options: ListeningOptions): ListeningEngine {
     talkHold = undefined;
   };
 
-  /** Seek back TALK_RESUME_BACK_SEC and play, if the same item still holds the slot. */
+  /** Resume the same held item; spoken Sources rewind TALK_RESUME_BACK_SEC, Music does not. */
   const resumeBack = (source: SourceId, itemId: string, why: string) => {
     if (active !== source || nowPlaying?.item.id !== itemId) return;
     const adapter = sources[source].adapter;
     const position = latest[source]?.positionSec ?? nowPlaying.positionSec;
-    adapter.seek(Math.max(0, position - TALK_RESUME_BACK_SEC));
+    if (source !== "music") adapter.seek(Math.max(0, position - TALK_RESUME_BACK_SEC));
     adapter.play().catch((error: unknown) => {
       console.warn(`Vela could not resume after ${why}`, error);
     });
@@ -188,10 +188,14 @@ export function createListening(options: ListeningOptions): ListeningEngine {
 
   async function send(command: ListenCommand): Promise<void> {
     if (disposed) return;
-    // A driver command ends any automatic resume after a Turn sound.
-    cancelTalkYield();
+    // Volume does not change transport intent; other driver commands cancel auto-resume.
+    if (command.type !== "volume") cancelTalkYield();
     const adapter = active === undefined ? undefined : sources[active].adapter;
     switch (command.type) {
+      case "volume":
+        if (!Number.isFinite(command.volume) || command.volume < 0 || command.volume > 100) throw new Error("volume must be 0–100");
+        if (active !== undefined) sources[active].output.setDeviceVolume(command.volume / 100);
+        return;
       case "playItem":
         return activate(command.item);
       case "resume": {
@@ -257,9 +261,9 @@ export function createListening(options: ListeningOptions): ListeningEngine {
     }, pending.deadline - now);
   }
 
-  function beginHold(): void {
+  function beginHold(pauseMusic: boolean): void {
     sources.music.output.setDuck(duckFactor);
-    if (active === undefined || turnSoundYield(active) === "duck") return;
+    if (active === undefined || (active === "music" && !pauseMusic) || talkHold !== undefined) return;
     if (talkYield !== undefined) {
       // Paused by a Turn sound: the hold takes over, so it does not resume mid-answer.
       if (talkYield.timer !== undefined) clearTimeout(talkYield.timer);
@@ -279,10 +283,10 @@ export function createListening(options: ListeningOptions): ListeningEngine {
     if (held !== undefined) resumeBack(held.source, held.itemId, "the Co-driver spoke");
   }
 
-  function holdForTalk(): () => void {
+  function holdForTalk(mode: "speech" | "listening" = "speech"): () => void {
     if (disposed) return () => undefined;
     holds += 1;
-    if (holds === 1) beginHold();
+    if (holds === 1 || mode === "listening") beginHold(mode === "listening");
     let released = false;
     return () => {
       if (released || disposed) return;

@@ -1,9 +1,8 @@
 /**
- * The bridge between Navigation and Listening for Turn sounds: Navigation decides when,
- * Listening yields (Music ducks; Podcasts and Books pause and resume two seconds back),
- * and an earcon plays. The earcons here are placeholders until the sound design round.
+ * The Turn-sound bridge: Navigation decides when; an earcon plays over media unchanged.
+ * The earcons here are placeholders until the sound design round.
  */
-import type { Listening, NavEngine, TurnSound, TurnSoundEvent } from "../contract";
+import type { NavEngine, TurnSound, TurnSoundEvent } from "../contract";
 
 export interface Earcons {
   /** Play one earcon now. Resolves when it has finished. */
@@ -25,11 +24,11 @@ const browserScheduler: Scheduler = {
 
 /**
  * Wire Turn sounds. The engine emits each event `turnSoundLeadMs` before `heardAt`, so the
- * earcon starts at once to cover the Bluetooth delay; Listening yields for its duration.
+ * earcon starts at once to cover the Bluetooth delay. Media keeps playing unchanged.
  */
-export function bridgeTurnSounds(nav: NavEngine, listening: Listening, earcons: Earcons, leadMs: number, scheduler: Scheduler = browserScheduler): () => void {
+export function bridgeTurnSounds(nav: NavEngine, earcons: Earcons, leadMs: number, scheduler: Scheduler = browserScheduler): () => void {
   const pending = new Set<unknown>();
-  const fire = (event: TurnSoundEvent): void => playTurnSound(listening, earcons, event.sound);
+  const fire = (event: TurnSoundEvent): void => playTurnSound(earcons, event.sound);
   const off = nav.onTurnSound((event) => {
     // Start `leadMs` before the moment it should be heard, to cover the Bluetooth delay.
     const wait = Math.max(0, event.heardAt - leadMs - scheduler.now());
@@ -44,9 +43,8 @@ export function bridgeTurnSounds(nav: NavEngine, listening: Listening, earcons: 
   };
 }
 
-/** Play one Turn sound now: Listening yields for its duration while the earcon plays. */
-export function playTurnSound(listening: Listening, earcons: Earcons, sound: TurnSound): void {
-  void listening.yieldForTurnSound(earcons.durationMs[sound]);
+/** Play one Turn sound over media, with no transport or duck change. */
+export function playTurnSound(earcons: Earcons, sound: TurnSound): void {
   void earcons.play(sound);
 }
 
@@ -69,7 +67,8 @@ export function toneEarcons(context: () => AudioContext): Earcons {
         const gain = ctx.createGain();
         osc.frequency.value = hz;
         gain.gain.setValueAtTime(0, at);
-        gain.gain.linearRampToValueAtTime(0.35, at + 0.015);
+        // +8.94 dB over the old 0.35 peak. Non-overlapping sine tones stay below full scale.
+        gain.gain.linearRampToValueAtTime(0.98, at + 0.015);
         gain.gain.exponentialRampToValueAtTime(0.001, at + ms / 1000);
         osc.connect(gain).connect(ctx.destination);
         osc.start(at);

@@ -3,6 +3,7 @@
  * The Co-driver is the personal assistant reached over SurfaceLink and voice-gateway (ADR 0007);
  * the wake word runs entirely on the phone (ADR 0009).
  */
+import type { AssistantCard } from "./assistant";
 import type { CoDriverId } from "./surface";
 
 export type TalkState =
@@ -23,6 +24,8 @@ export interface CoDriver {
   press(): void; release(): void; cancel(): void;
   choose(id: CoDriverId): void;
   subscribe(fn: (state: TalkState) => void): () => void;
+  /** Optional display-only card stream. Cards are not Moments and are never spoken. */
+  onCard?(fn: (card: AssistantCard) => void): () => void;
 }
 export type WakeState = { kind: "off" } | { kind: "loading"; progress: number } | { kind: "listening" } | { kind: "unavailable"; reason: string };
 export interface WakeWord { readonly state: WakeState; enable(on: boolean): void; subscribe(fn: (s: WakeState) => void): () => void }

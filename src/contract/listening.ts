@@ -34,6 +34,8 @@ export type ListenCommand =
   | { readonly type: "play" }
   | { readonly type: "pause" }
   | { readonly type: "toggle" }
+  /** Absolute volume on the active device output, 0–100. */
+  | { readonly type: "volume"; readonly volume: number }
   /** Music: previous/next track. Podcasts and Books: back 15 s / forward 30 s. */
   | { readonly type: "back" }
   | { readonly type: "forward" }
@@ -62,20 +64,21 @@ export interface SourceAdapter {
 
 /**
  * The single listening controller. Only one Source plays at a time.
- * Turn sounds: Music ducks under them; Podcasts and Books pause, then resume 2 seconds back.
+ * Sounds-only earcons overlay media unchanged. Spoken directions use holdForTalk().
  */
 export interface Listening {
   readonly nowPlaying: NowPlaying | undefined;
   readonly shelf: Shelf;
   send(command: ListenCommand): Promise<void>;
   search(source: SourceId, query: string): Promise<readonly Item[]>;
-  /** Called by the nav side around every Turn sound. Returns when listening has yielded. */
+  /** Timed speech yield: Music ducks; Podcasts and Books pause and rewind. Not for earcons. */
   yieldForTurnSound(durationMs: number): Promise<void>;
   /**
-   * Called while the Co-driver speaks. Music ducks; Podcasts and Books pause. The returned
-   * function releases the hold: Music restores, Podcasts and Books resume TALK_RESUME_BACK_SEC back.
+   * Speech (default): duck Music, pause Podcasts and Books. Listening: pause all Sources.
+   * Holds nest; only the final release resumes what was playing. Music resumes in place;
+   * Podcasts and Books resume TALK_RESUME_BACK_SEC back. Driver transport commands cancel resume.
    */
-  holdForTalk(): () => void;
+  holdForTalk(mode?: "speech" | "listening"): () => void;
   subscribe(listener: (state: { nowPlaying: NowPlaying | undefined; shelf: Shelf }) => void): () => void;
 }
 

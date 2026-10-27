@@ -358,3 +358,58 @@ describe("holding for the Co-driver's speech", () => {
     listening.dispose();
   });
 });
+
+
+describe("holding while the driver talks", () => {
+  test.each(["music", "podcasts", "books"] as const)("pauses %s immediately, nests with speech, and resumes only once", async (source) => {
+    const fixture = createListeningFixture();
+    const { listening, elements } = fixture;
+    const item = source === "music" ? await musicItem(fixture) : source === "podcasts" ? episode : book;
+    await listening.send({ type: "playItem", item }); await settle();
+    elements[source].advance(20);
+    const release = listening.holdForTalk("listening");
+    expect(elements[source].paused).toBe(true);
+    const answer = listening.holdForTalk();
+    release(); await settle(); expect(elements[source].paused).toBe(true);
+    answer(); await settle(); expect(elements[source].paused).toBe(false);
+    expect(listening.nowPlaying?.positionSec).toBe(source === "music" ? 20 : 18);
+    answer(); await settle(); expect(listening.nowPlaying?.positionSec).toBe(source === "music" ? 20 : 18);
+    listening.dispose();
+  });
+
+  test.each(["music", "podcasts", "books"] as const)("never resumes %s paused by the driver before or during Talk", async (source) => {
+    const fixture = createListeningFixture(); const { listening, elements } = fixture;
+    await listening.send({ type: "playItem", item: source === "music" ? await musicItem(fixture) : source === "podcasts" ? episode : book }); await settle();
+    await listening.send({ type: "pause" });
+    listening.holdForTalk("listening")(); await settle(); expect(elements[source].paused).toBe(true);
+    await listening.send({ type: "play" }); await settle();
+    const release = listening.holdForTalk("listening");
+    await listening.send({ type: "pause" }); release(); await settle(); expect(elements[source].paused).toBe(true);
+    listening.dispose();
+  });
+
+  test("a listening hold takes over Music already ducked for speech", async () => {
+    const fixture = createListeningFixture(); const { listening, elements } = fixture;
+    await listening.send({ type: "playItem", item: await musicItem(fixture) }); await settle();
+    const volume = elements.music.volume;
+    const speech = listening.holdForTalk();
+    const driver = listening.holdForTalk("listening");
+    speech(); await settle(); expect(elements.music.paused).toBe(true);
+    driver(); await settle(); expect(elements.music.paused).toBe(false); expect(elements.music.volume).toBe(volume);
+    listening.dispose();
+  });
+});
+
+
+test.each(["music", "podcasts", "books"] as const)("absolute device volume on %s survives pause/resume and restores after ducking", async (source) => {
+  const fixture = createListeningFixture(); const { listening, elements } = fixture;
+  await listening.send({ type: "playItem", item: source === "music" ? await musicItem(fixture) : source === "podcasts" ? episode : book }); await settle();
+  await listening.send({ type: "volume", volume: 42 }); expect(elements[source].volume).toBeCloseTo(0.42);
+  const release = listening.holdForTalk();
+  await listening.send({ type: "volume", volume: 60 }); release(); await settle();
+  expect(elements[source].volume).toBeCloseTo(0.6); expect(elements[source].paused).toBe(false);
+  await listening.send({ type: "volume", volume: 0 }); expect(elements[source].volume).toBe(0);
+  await listening.send({ type: "volume", volume: 100 }); expect(elements[source].volume).toBe(1);
+  await expect(listening.send({ type: "volume", volume: Number.NaN })).rejects.toThrow("volume");
+  listening.dispose();
+});

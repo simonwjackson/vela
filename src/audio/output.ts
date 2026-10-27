@@ -2,9 +2,9 @@
  * The audio output each Source adapter plays through: one media element plus a gain stage.
  *
  * Two parties change loudness for different reasons. The Source adapter sets the volume
- * (for Music, the Pyxis session volume). Listening ducks Music under a Turn sound. Keeping
- * them as two factors means a restore after a duck can never undo a volume change that
- * arrived during the duck.
+ * (for Music, the Pyxis session volume). Listening can override the local device volume and
+ * ducks Music under Co-driver speech. The duck stays a separate factor, so restoring it
+ * never undoes a volume change. The local override lasts until reload, not on the Service.
  */
 
 export type MediaEventType = "timeupdate" | "ended" | "error" | "loadedmetadata" | "play" | "pause" | "seeked";
@@ -28,6 +28,8 @@ export interface AudioOutput {
   readonly element: MediaElement;
   /** Adapter-owned volume, 0..1. */
   setVolume(volume: number): void;
+  /** Absolute local-device override, 0..1, independent of the Service volume. */
+  setDeviceVolume(volume: number): void;
   /** Listening-owned duck factor, 0..1. 1 means not ducked. */
   setDuck(factor: number): void;
   readonly ducked: boolean;
@@ -38,14 +40,19 @@ const clamp01 = (value: number) => (Number.isFinite(value) ? Math.min(1, Math.ma
 export function createAudioOutput(element: MediaElement): AudioOutput {
   let volume = 1;
   let duck = 1;
+  let deviceVolume: number | undefined;
   const apply = () => {
-    element.volume = volume * duck;
+    element.volume = (deviceVolume ?? volume) * duck;
   };
   apply();
   return {
     element,
     setVolume(next) {
       volume = clamp01(next);
+      apply();
+    },
+    setDeviceVolume(next) {
+      deviceVolume = clamp01(next);
       apply();
     },
     setDuck(factor) {
