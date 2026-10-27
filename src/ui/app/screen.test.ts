@@ -110,7 +110,7 @@ describe("the drive answer", () => {
   test("the chip never repeats the answer: off route without signal has no chip", () => {
     const s = screen(scenarioInput("offroute-nosignal", false));
     expect(s.top?.chip).toBeUndefined();
-    expect(s.base).toMatchObject({ dim: true, eta: { time: "…" } });
+    expect(s.base).toMatchObject({ kind: "trip", eta: { lead: "Arrive", time: "…" } });
   });
 
   test("speed readouts show only 3 s over limit + 5", () => {
@@ -124,14 +124,15 @@ describe("the drive answer", () => {
     expect(screen({ ...input, readouts: noLimit, memory: { overSince: NOW - 5000 } }).top?.speed).toBeUndefined();
   });
 
-  test("stops on the way: ticks at each stop, and B counts to the next one", () => {
-    const s = screen(scenarioInput("via", true));
-    expect(s.base).toMatchObject({ kind: "trip", left: { min: 192 }, eta: { via: "Kessler Junction Truck Stop and Travel Plaza Fuel Centre", time: "4:11 PM" } });
-    if (s.base.kind !== "trip") throw new Error("trip");
-    expect(s.base.ticks.map((t) => Math.round(t * 100))).toEqual([27, 36, 48, 60, 71, 83, 92]);
+  test("stops on the way: B counts to the next one and names it; the route places each stop", () => {
+    const input = scenarioInput("via", true);
+    const s = screen(input);
+    expect(s.base).toEqual({ kind: "trip", left: { min: 192 }, eta: { lead: "", via: "Kessler Junction Truck Stop and Travel Plaza Fuel Centre", time: "4:11 PM" }, talk: expect.anything() });
+    if (input.nav.kind !== "guiding") throw new Error("guiding");
+    expect(viaTicks(input.nav.guidance.route).map((t) => Math.round(t * 100))).toEqual([27, 36, 48, 60, 71, 83, 92]);
   });
 
-  test("a stop on the way far from every arrival gets no tick", () => {
+  test("a stop on the way far from every arrival has no place on the route", () => {
     const g = guidance({ ...x.short.route, via: [{ place: { name: "Far", lat: 0.9, lng: -0.9 }, at: 0.5 }] });
     const route = { ...g.route, stops: g.route.stops.filter((s) => s.street !== "Far") };
     expect(viaTicks(route)).toEqual([]);
@@ -139,7 +140,7 @@ describe("the drive answer", () => {
 
   test("arrived shows the trip it ends", () => {
     const s = screen(scenarioInput("arrived", true));
-    expect(s.base).toMatchObject({ left: { text: "900 km in 11 h 45 min" }, fraction: 1, eta: { lead: "Arrived", time: "1:10 AM" } });
+    expect(s.base).toMatchObject({ left: { text: "900 km in 11 h 45 min" }, eta: { lead: "Arrived", time: "1:10 AM" } });
   });
 
   test("the roundabout glyph carries the exit numeral", () => {

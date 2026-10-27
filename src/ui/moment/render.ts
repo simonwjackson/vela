@@ -169,7 +169,7 @@ function block(el: Part, ctx: Ctx): HTMLElement {
     }
     case "Bar": {
       const b = barOf(p.key as BarKey, d);
-      return bar(b?.fraction ?? 0, { quiet: p.key !== "trip", ticks: b?.ticks ?? [], cls: "m-progress" });
+      return bar(b?.fraction ?? 0, { cls: "m-progress" });
     }
     case "Sequence":
       return sequence(p.key as SequenceKey, d, key);

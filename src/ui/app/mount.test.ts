@@ -73,6 +73,8 @@ test("draws the drive frame, and a GPS fix patches it in place", async () => {
   expect(h.$(".answer .big").textContent).toBe("400m");
   expect(h.$(".road").textContent).toBe("Larch Avenue");
   expect(h.$(".trip .eta").textContent).toBe("Arrive 2:17 PM");
+  // The trip row is the figure, the eta and Talk: no progress bar.
+  expect(h.root.querySelector(".trip .bar")).toBeNull();
   const card = h.$(".listen");
   const x = fixtures(false);
   h.f.nav.set({ kind: "guiding", guidance: guidance({ ...x.short.route, next: { ...x.short.route.next, meters: 60 } }) });

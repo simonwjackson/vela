@@ -246,10 +246,7 @@ export type BaseView =
   | {
       kind: "trip";
       left: { min: number } | { text: string };
-      fraction: number;
-      ticks: readonly number[];
       eta: { lead: string; time: string; via?: string | undefined };
-      dim: boolean;
       talk: TalkView;
     }
   | { kind: "waiting"; talk: TalkView }
@@ -714,33 +711,26 @@ function driveBase(input: ScreenInput, talk: TalkView): BaseView {
   if (nav.kind === "arrived") {
     const last = input.memory.lastGuidance;
     const at = clockTime(input.memory.arrivedAt ?? now);
-    if (!last) return { kind: "trip", left: { text: placeName(nav.destination.name) }, fraction: 1, ticks: [], eta: { lead: "Arrived", time: at }, dim: false, talk };
+    if (!last) return { kind: "trip", left: { text: placeName(nav.destination.name) }, eta: { lead: "Arrived", time: at }, talk };
     const r = last.route;
     return {
       kind: "trip",
       left: { text: `${km(r.totalMeters)} in ${duration(minutesOf(r.totalSec))}` },
-      fraction: 1,
-      ticks: viaTicks(r),
       eta: { lead: "Arrived", time: at },
-      dim: false,
       talk,
     };
   }
   const g = guidanceOf(nav) as Guidance;
-  const ticks = viaTicks(g.route);
   if (readouts.fixAgeMs === undefined && nav.kind === "guiding") {
-    return { kind: "trip", left: { text: placeName(g.route.destination.name) }, fraction: 0, ticks, eta: { lead: "", time: km(g.metersLeft) }, dim: true, talk };
+    return { kind: "trip", left: { text: placeName(g.route.destination.name) }, eta: { lead: "", time: km(g.metersLeft) }, talk };
   }
   const waiting = nav.kind === "rerouting" || (g.offRoute && (g.offline || !input.online));
-  if (waiting) return { kind: "trip", left: { min: minutesOf(g.secLeft) }, fraction: g.progress, ticks, eta: { lead: "Arrive", time: "…" }, dim: true, talk };
+  if (waiting) return { kind: "trip", left: { min: minutesOf(g.secLeft) }, eta: { lead: "Arrive", time: "…" }, talk };
   if (g.nextVia) {
     return {
       kind: "trip",
       left: { min: minutesOf(g.nextVia.secTo) },
-      fraction: g.progress,
-      ticks,
       eta: { lead: "", via: placeName(g.nextVia.place.name), time: arrival(g.nextVia.arriveAt, now) },
-      dim: false,
       talk,
     };
   }
@@ -749,10 +739,7 @@ function driveBase(input: ScreenInput, talk: TalkView): BaseView {
   return {
     kind: "trip",
     left: road ? { text: `On ${road}` } : { min: minutesOf(g.secLeft) },
-    fraction: g.progress,
-    ticks,
     eta: { lead: "Arrive", time: arrival(g.arriveAt, now) },
-    dim: false,
     talk,
   };
 }

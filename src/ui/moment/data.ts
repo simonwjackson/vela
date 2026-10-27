@@ -170,12 +170,10 @@ export function textOf(key: FactKey, d: MomentData): string | undefined {
   return "min" in fig ? duration(fig.min) : `${fig.num}${fig.unit === "%" ? "" : " "}${fig.unit}`.trim();
 }
 
-export function barOf(key: BarKey, d: MomentData): { fraction: number; ticks?: readonly number[] } | undefined {
+export function barOf(key: BarKey, d: MomentData): { fraction: number } | undefined {
   const g = guidanceOf(d);
   const r = reading(d);
   switch (key) {
-    case "trip":
-      return g ? { fraction: g.progress, ticks: viaTicks(g.route) } : undefined;
     case "playback": {
       const np = nowPlaying(d);
       const dur = np?.item.durationSec;

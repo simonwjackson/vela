@@ -68,14 +68,10 @@ export function switchEl(on: boolean, label: string, a: Act): HTMLElement {
 }
 
 // ---- Progress -----------------------------------------------------------------------------------
-export function bar(fraction: number, opts: { quiet?: boolean; ticks?: readonly number[]; cls?: string } = {}): HTMLElement {
-  const pct = (x: number) => `${Math.max(0, Math.min(1, x)) * 100}%`;
-  return h(
-    "div",
-    { class: ["bar", opts.quiet ? "quiet" : "", opts.cls ?? ""].filter(Boolean).join(" ") },
-    h("i", { style: `width:${pct(fraction)}` }),
-    ...(opts.ticks ?? []).map((t) => h("b", { class: "tick", style: `left:${pct(t)}` })),
-  );
+/** A position bar: what plays, a download, an answer spoken, a Moment's range or fuel. */
+export function bar(fraction: number, opts: { cls?: string } = {}): HTMLElement {
+  const pct = `${Math.max(0, Math.min(1, fraction)) * 100}%`;
+  return h("div", { class: ["bar", opts.cls ?? ""].filter(Boolean).join(" ") }, h("i", { style: `width:${pct}` }));
 }
 
 // ---- Art ----------------------------------------------------------------------------------------

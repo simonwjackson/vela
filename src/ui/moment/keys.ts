@@ -18,7 +18,7 @@ export const VALUE_KEYS = [
 ] as const;
 /** Words: a place, a road, a title, a by-line, fault codes. What a Name shows. */
 export const NAME_KEYS = ["dest", "next.road", "road.now", "stop.next", "media.now", "media.by", "car.codes", "weather.now", "weather.next"] as const;
-export const BAR_KEYS = ["trip", "playback", "range", "fuel"] as const;
+export const BAR_KEYS = ["playback", "range", "fuel"] as const;
 export const SEQUENCE_KEYS = ["route.stops", "weather.stretches", "route.weather"] as const;
 export const HERO_KEYS = ["nav.next", "trip.left"] as const;
 export const FACT_KEYS = [...VALUE_KEYS, ...NAME_KEYS] as const;

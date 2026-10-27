@@ -150,7 +150,7 @@ function stage(n: NowView): HTMLElement {
       { class: "text" },
       h("div", { class: "title" }, n.title),
       h("div", { class: "by" }, n.byLong),
-      n.transport === "loading" ? h("div", { class: "bar quiet listen-loading", role: "progressbar", "aria-label": "Loading" }) : bar(n.fraction, { quiet: true }),
+      n.transport === "loading" ? h("div", { class: "bar listen-loading", role: "progressbar", "aria-label": "Loading" }) : bar(n.fraction),
       keys({ skip: n.skip, playing: n.transport === "playing" || n.transport === "loading", error: n.transport === "error" ? "Try again" : undefined }),
     ),
   );
@@ -199,7 +199,7 @@ function card(c: CardView): HTMLElement {
           ? h(
               "div",
               { class: "talk-progress", hidden: true, role: "progressbar", "aria-label": "Answer spoken", "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": String(Math.round(c.paged * 100)) },
-              bar(c.paged, { quiet: true }),
+              bar(c.paged),
             )
           : null,
         c.shimmer ? h("div", { class: "shimmer talk-shimmer" }) : null,
@@ -221,7 +221,7 @@ function card(c: CardView): HTMLElement {
                 "div",
                 { class: "row talk-setup-row talk-dl" },
                 lead,
-                h("span", { class: "text" }, h("b", null, r.title), h("span", { class: "num" }, r.sub), bar(r.end.fraction, { quiet: true })),
+                h("span", { class: "text" }, h("b", null, r.title), h("span", { class: "num" }, r.sub), bar(r.end.fraction)),
               );
             }
             const end =
@@ -240,8 +240,8 @@ function listenCard(n: NowView, retry: string): HTMLElement {
     : h("div", { class: "by" }, n.transport === "loading" ? "Loading" : n.by);
   const progress =
     n.transport === "loading"
-      ? h("div", { class: "bar quiet listen-loading", role: "progressbar", "aria-label": "Loading" })
-      : bar(n.fraction, { quiet: true, cls: err ? "listen-stale" : "" });
+      ? h("div", { class: "bar listen-loading", role: "progressbar", "aria-label": "Loading" })
+      : bar(n.fraction, { cls: err ? "listen-stale" : "" });
   return h(
     "section",
     { class: `listen${err ? " listen-error" : ""}`, "aria-label": "Now playing", "data-action": "library-open", "data-key": "listen-card" },
@@ -272,7 +272,7 @@ function base(b: BaseView): HTMLElement | null {
     case "talk-only":
       return h("section", { class: "talk-base", "aria-label": "Talk", "data-key": "talk-base" }, talkBtn(b.talk));
     case "waiting":
-      return h("section", { class: "trip dim plan-waiting", "aria-label": "Trip", "data-key": "waiting" }, bar(0), h("span", { class: "eta" }, "Arrive ", h("b", null, "…")), talkBtn(b.talk));
+      return h("section", { class: "trip plan-waiting", "aria-label": "Trip", "data-key": "waiting" }, h("span", { class: "trip-line" }, h("span", { class: "eta" }, "Arrive ", h("b", null, "…"))), talkBtn(b.talk));
     case "shelf-row":
       return h(
         "section",
@@ -303,10 +303,8 @@ function base(b: BaseView): HTMLElement | null {
         : h("span", { class: "eta" }, b.eta.lead ? `${b.eta.lead} ` : "", h("b", { class: "num" }, b.eta.time));
       return h(
         "section",
-        { class: `trip${b.dim ? " dim" : ""}${b.eta.via !== undefined ? " drive-via" : ""}`, "aria-label": "Trip", "data-action": "route-open", "data-key": "trip" },
-        left,
-        bar(b.fraction, { ticks: b.ticks }),
-        eta,
+        { class: `trip${b.eta.via !== undefined ? " drive-via" : ""}`, "aria-label": "Trip", "data-action": "route-open", "data-key": "trip" },
+        h("span", { class: "trip-line" }, left, eta),
         talkBtn(b.talk),
       );
     }
@@ -663,7 +661,7 @@ function downloadRows(d: DownloadsView): HTMLElement[] {
           "div",
           { class: "row listen-dl", role: "status" },
           lead(),
-          h("span", { class: "text" }, h("b", null, `Downloading ${d.done} of ${d.total}`), h("span", { class: "listen-dl-bar" }, bar(d.total ? d.done / d.total : 0, { quiet: true }))),
+          h("span", { class: "text" }, h("b", null, `Downloading ${d.done} of ${d.total}`), h("span", { class: "listen-dl-bar" }, bar(d.total ? d.done / d.total : 0))),
         ),
       ];
     case "saved":

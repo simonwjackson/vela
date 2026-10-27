@@ -8,7 +8,7 @@ ui state ├─ app/screen.ts screen()   pure: which of the 68 states, and its d
 memory  ─┘        │
                   app/render.ts      the model as elements (view/parts.ts components)
                   core/morph.ts      patch the live DOM in place (focus, drafts, scroll survive)
-                  view/fit.ts        measured adaptations: hero step-down, trip-bar stacking,
+                  view/fit.ts        measured adaptations: hero step-down, the compact stage,
                                      glyph-only chips, compact card, optional rows, the peek row
 ```
 

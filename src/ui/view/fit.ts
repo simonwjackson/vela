@@ -4,8 +4,6 @@
  * every render and on every resize.
  */
 
-/** A trip bar shorter than this takes its own line. */
-export const MIN_TRIP_BAR = 120;
 /** A cut-off row must show at least this share of itself. */
 export const PEEK_MIN = 0.4;
 
@@ -17,12 +15,6 @@ export function fit(app: HTMLElement): void {
     big.classList.remove("step");
     const box = big.closest(".answer");
     if (box && rect(big).right > rect(box).right + 0.5) big.classList.add("step");
-  }
-  // Trip row: when the bar would be under 120 px, it takes its own line above the figures.
-  for (const trip of app.querySelectorAll(".trip")) {
-    trip.removeAttribute("data-stack");
-    const bar = trip.querySelector(".bar");
-    if (bar && rect(bar).width < MIN_TRIP_BAR) trip.setAttribute("data-stack", "");
   }
   // A status chip whose text would ellipsize shows its glyph only: "No sig…" says nothing.
   for (const c of app.querySelectorAll(".chip:not(.toast)")) {

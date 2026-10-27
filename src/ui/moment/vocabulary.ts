@@ -69,7 +69,7 @@ export function buildLibrary() {
   const Bar = defineComponent({
     name: "Bar",
     description:
-      "Progress, always left to right, 2 px, bound: trip (how far through the trip; the accent, with a tick at each stop), playback (what plays), range (how far the fuel reaches, as a share of the distance left), fuel (the tank's level).",
+      "A position, always left to right, 2 px, bound: playback (what plays), range (how far the fuel reaches, as a share of the distance left), fuel (the tank's level). The trip has no bar: TripRow says the time left and the arrival.",
     props: z.object({ key: z.enum(BAR_KEYS) }),
     component: null,
   });
@@ -157,7 +157,7 @@ export function buildLibrary() {
   });
   const TripRow = defineComponent({
     name: "TripRow",
-    description: "Vela's trip row, whole: time left (or the next stop), the trip bar, the arrival. Bound. As the last block it also holds Talk.",
+    description: "Vela's trip row, whole, on one line: the time left (to the next stop when there is one; the next turn when no other part shows it), then the arrival time (or the next stop's name and time). Bound. As the last block it also holds Talk.",
     props: z.object({}),
     component: null,
   });

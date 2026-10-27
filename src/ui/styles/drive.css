@@ -14,13 +14,10 @@
 /* ---- GPS lost: the last answer stays, in t2 (it may no longer be true) ----------------------- */
 .drive-stale :is(.arrow, .big, .road) { color: var(--t2); }
 
-/* ---- Stop on the way next: the trip row's trailing figure is the stop and its time ------------
-   The name ellipsizes; the time never does. The bar keeps the shared stack rule (own line under 120). */
-.trip.drive-via { grid-template-columns: max-content minmax(0, 1fr) minmax(0, max-content) auto; }
-.trip.drive-via[data-stack] { grid-template-columns: max-content minmax(0, 1fr) auto; }
-.trip.drive-via .eta { display: flex; gap: .3em; min-width: 0; justify-self: end; max-width: 100%; }
-/* The name is a readout: it stops at 15em so the bar keeps its line where the row allows. */
-.trip.drive-via .drive-via-name { min-width: 0; max-width: 15em; overflow: hidden; text-overflow: ellipsis; }
+/* ---- Stop on the way next: the trip row's eta is the stop and its time ------------------------
+   The name ellipsizes; the time never does. */
+.trip.drive-via .eta { flex: 0 1 auto; display: flex; gap: .3em; min-width: 0; }
+.trip.drive-via .drive-via-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .trip.drive-via .eta b { flex: none; }
 
 /* ---- Arrived: Done at the trailing end of the Destination line ---------------------------------

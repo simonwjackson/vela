@@ -94,7 +94,8 @@ describe("the calm rules gate", () => {
     expect(codes(patch(FUEL, 'lead = Lead(Stack([Row([Glyph("fuel"), Value("car.range")]), Label("of fuel left in the tank")]))'))).toContain("lead-label"));
   test("no whole phrase of say on screen", () =>
     expect(codes(patch(FUEL, 'root = Screen([lead, note, trip])\nnote = Text("Shall I find fuel on the way")'))).toContain("repeats-say"));
-  test("every fact once", () => expect(codes(patch(FUEL, 'short = Row([Bar("trip"), Fact("Short by", "range.short")])'))).toContain("repeats"));
+  test("every fact once", () => expect(codes(patch(FUEL, 'short = Row([Bar("range"), Fact("Range", "car.range")])'))).toContain("repeats"));
+  test("the trip has no bar", () => expect(codes(patch(FUEL, 'short = Row([Bar("trip"), Fact("Short by", "range.short")])'))).toContain("type-mismatch"));
   test("a key with no data now", () => {
     const s = sceneData("fuel");
     s.f.car.set({ kind: "connect" }, {});

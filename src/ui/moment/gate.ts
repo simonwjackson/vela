@@ -135,8 +135,8 @@ function showsOf(el: Part, d: MomentData, tripTurn: boolean): readonly string[] 
   switch (el.typeName) {
     case "TripRow": {
       const base = d.screen.base;
-      if (base.kind !== "trip") return ["trip.eta", "bar:trip"];
-      const out = ["bar:trip"];
+      if (base.kind !== "trip") return ["trip.eta"];
+      const out: string[] = [];
       if (base.eta.via !== undefined) out.push("stop.next", "stop.next.eta");
       else if (base.eta.lead === "Arrived") out.push("trip.driven", "trip.time");
       else out.push("trip.eta");

@@ -115,8 +115,6 @@
 .plan-quiet i { margin-top: .08em; }
 .plan-quiet > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; line-height: 1.2; }
 
-/* Trip row before a Route exists: bar and eta only, dimmed. */
-.app .trip.plan-waiting { grid-template-columns: minmax(0, 1fr) auto auto; }
 
 /* ---- Keyboard open ---------------------------------------------------------------------- */
 /* The OS keyboard's space: the frame lays out above it (the visual viewport). Transparent: the keyboard covers it. */

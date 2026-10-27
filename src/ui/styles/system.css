@@ -14,11 +14,11 @@
    Answer        .answer  .hero  .arrow  .big(.step)  .unit  .road(.secondary)  .line2  .quiet  .shimmer
    Buttons       .btn  .btn.primary  .btn.quiet  .btn-row  .icon-btn  .keys  .keys .play
    Talk button   .talk-btn[aria-pressed]  .talk-btn.denied
-   Progress      .bar > i  .bar.quiet  .trip.dim  .bar .tick
+   Progress      .bar > i
    Cards in C    .listen, .where-card, .codriver, .listen.shelf, .talk-setup
    Stage         .stage (Now playing large, in the answer slot only)
    Shelf         .listen.shelf, .shelf.large, .shelf-row > .shelf-item
-   Trip row      .trip(.dim)[data-stack] > .left + .bar + .eta + .talk-btn
+   Trip row      .trip > .trip-line(.left + .eta) + .talk-btn
    List rows     .list[data-scroll] > .list-head + .row
    Sheet         .sheet > .sheet-top + .field + .list
    Segmented     .seg > button[aria-pressed]
@@ -41,8 +41,8 @@
   --edge: rgb(255 255 255 / .07);
   --t1: #f7f8f8;          /* answers, titles */
   --t2: #8a8f98;          /* by-lines, units, clock, quiet states */
-  --t3: #5c6068;          /* meta, section labels, dimmed bar. Never for something the driver needs. */
-  --accent: #7c80ff;      /* three uses only: trip progress, Talk while the mic is open, focus ring */
+  --t3: #5c6068;          /* meta, section labels, a bar's track. Never for something the driver needs. */
+  --accent: #7c80ff;      /* two uses only: Talk while the mic is open, focus ring */
   --on-accent: #0b0c1a;
   --warn: #e5a54b;        /* less reliable answer, or over the limit. Text and glyph only. */
   --track: rgb(255 255 255 / .09);
@@ -220,14 +220,10 @@ button.chip::after { content: ""; position: absolute; top: -14px; bottom: -14px;
   box-shadow: 0 0 0 calc(2px + var(--level) * 6px) color-mix(in srgb, var(--accent) 30%, transparent); }
 .talk-btn.denied { color: var(--t2); }
 
-/* ---- Progress bar: left to right, 2px, the default way to show progress ----------------- */
+/* ---- Position bar: left to right, 2px, t2 on the track. What plays, a download, an answer spoken.
+   The trip has no bar: the trip row says the time left and the arrival in words. */
 .bar { height: 2px; border-radius: 2px; background: var(--track); position: relative; overflow: hidden; }
-.bar i { position: absolute; inset: 0 auto 0 0; border-radius: 2px; background: var(--accent); min-width: 6px; transition: width 1000ms linear; }
-.bar.quiet i { border-radius: 0; background: var(--t2); min-width: 0; }
-.trip.dim .bar i { background: var(--t3); }
-/* Stops on the way: 2 x 8 ticks in t3, centred on the bar. */
-.bar:has(.tick) { overflow: visible; }
-.bar .tick { position: absolute; top: -3px; width: 2px; height: 8px; border-radius: 1px; background: var(--t3); transform: translateX(-1px); }
+.bar i { position: absolute; inset: 0 auto 0 0; background: var(--t2); transition: width 1000ms linear; }
 
 /* ---- Cards in the card slot (C) ---------------------------------------------------------- */
 .card, .listen, .where-card { grid-area: listen; align-self: center; min-width: 0; background: linear-gradient(rgb(255 255 255 / .025), transparent 40%), var(--surface);
@@ -346,17 +342,18 @@ button.row:disabled .text { color: var(--t3); }
 .list[data-scroll]:not([data-end]) { -webkit-mask-image: linear-gradient(#000 calc(100% - 28px), transparent); mask-image: linear-gradient(#000 calc(100% - 28px), transparent); }
 .list-head { font-size: var(--fs-meta); font-weight: 500; color: var(--t3); padding: 10px 10px 4px; }
 
-/* ---- Trip row: [leading figure] [bar] [eta] [Talk] -------------------------------------- */
-.trip { grid-area: trip; display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto auto; align-items: center; column-gap: 20px; padding-top: calc(var(--m) * .75); min-width: 0; }
-.trip .left { font-size: var(--trip); font-weight: var(--w1); letter-spacing: -.03em; white-space: nowrap; }
+/* ---- Trip row: [leading figure] [eta] ... [Talk] -----------------------------------------
+   One line at every posture. The figure and the eta are one statement (.trip-line) on a shared
+   baseline, 24 apart, centred on Talk, which ends the row. A readout gives way, never Talk: a road
+   or place name ellipsizes, a time does not. */
+.trip { grid-area: trip; display: flex; align-items: center; column-gap: 24px; padding-top: calc(var(--m) * .75); min-width: 0; }
+.trip-line { flex: 0 1 auto; display: flex; align-items: baseline; column-gap: 24px; min-width: 0; }
+.trip .left { flex: none; font-size: var(--trip); font-weight: var(--w1); letter-spacing: -.03em; white-space: nowrap; }
 .trip .left .unit { font-size: .58em; font-weight: var(--w2); color: var(--t2); margin-left: .15em; letter-spacing: -.01em; }
-.trip .left.small { font-size: var(--fs-body); font-weight: var(--w2); color: var(--t2); letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; }
-.trip .eta { font-size: var(--fs-body); font-weight: var(--w2); color: var(--t2); white-space: nowrap; }
+.trip .left.small { flex: 0 1 auto; min-width: 0; font-size: var(--fs-body); font-weight: var(--w2); color: var(--t2); letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; }
+.trip .eta { flex: none; font-size: var(--fs-body); font-weight: var(--w2); color: var(--t2); white-space: nowrap; }
 .trip .eta b { color: var(--t1); font-weight: var(--w2); }
-.trip .talk-btn { margin-left: -4px; }
-/* When the bar would be under 120 px, index.html sets [data-stack]: the bar gets its own line above. */
-.trip[data-stack] { grid-template-columns: minmax(0, 1fr) auto auto; row-gap: 12px; }
-.trip[data-stack] .bar { grid-column: 1 / -1; grid-row: 1; }
+.trip .talk-btn { margin-left: auto; }
 
 /* ---- Sheet: the card slot grown. Never covers the base row or the answer's hero line ------- */
 .sheet { z-index: 2; min-width: 0; background: var(--surface2); box-shadow: var(--shadow-sheet); border-radius: var(--radius-xl);

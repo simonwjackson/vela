@@ -129,8 +129,9 @@
 @media (prefers-reduced-motion: no-preference) { .app[data-fade] > * { animation: swap-in var(--t-swap) var(--ease); } }
 
 /* ---- The trip row's leading figure as the next turn (a Moment shows it nowhere else) ------------ */
-.trip .left.m-trip-turn { display: inline-flex; align-items: center; gap: .25em; }
-.m-trip-arrow { width: 1em; height: 1em; flex: none; color: var(--t1); --stroke: 2.1; }
+/* The arrow sits on the figure's centre; the figure and its unit share the eta's baseline. */
+.trip .left.m-trip-turn { display: inline-flex; align-items: baseline; }
+.m-trip-arrow { width: 1em; height: 1em; flex: none; align-self: center; margin-right: .25em; color: var(--t1); --stroke: 2.1; }
 
 /* ---- Settings: the car's readings. A value the driver reads is t1 at body size; none is t2. ---- */
 .talk-reading .meta { font-size: var(--fs-body); font-weight: var(--w2); color: var(--t1); }

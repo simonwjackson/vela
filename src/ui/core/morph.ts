@@ -6,7 +6,7 @@
  */
 
 /** Attributes the measured adaptations (fit.ts) own; patching leaves them alone. */
-const FIT_OWNED = new Set(["data-stack", "data-short", "data-compact", "data-scroll", "data-end", "data-cut", "data-pages"]);
+const FIT_OWNED = new Set(["data-short", "data-compact", "data-scroll", "data-end", "data-cut", "data-pages"]);
 /** Elements whose children fit.ts rewrites (paged and trimmed co-driver text). */
 const FIT_TEXT = "[data-full]";
 
